@@ -1,3 +1,6 @@
+mod board;
+mod types;
+
 fn main() {
-    println!("Hello, world!");
+    let b = board::Board::new("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 }
