@@ -1,5 +1,24 @@
 use std::ops::{Index, IndexMut};
 
+// adds Index and IndexMut traits so that bitboard arrays can be indexed by enums
+macro_rules! index_traits {
+    ( $t:ty ) => {
+        impl Index<$t> for [Bitboard] {
+            type Output = Bitboard;
+
+            fn index(&self, index: $t) -> &Self::Output {
+                &self[index as usize]
+            }
+        }
+
+        impl IndexMut<$t> for [Bitboard] {
+            fn index_mut(&mut self, index: $t) -> &mut Self::Output {
+                &mut self[index as usize]
+            }
+        }
+    };
+}
+
 pub type Bitboard = u64;
 
 pub enum Piece {
@@ -11,37 +30,11 @@ pub enum Piece {
     King,
 }
 pub const NUM_PIECES: usize = 6;
-
-impl Index<Piece> for [Bitboard] {
-    type Output = Bitboard;
-
-    fn index(&self, index: Piece) -> &Self::Output {
-        &self[index as usize]
-    }
-}
-
-impl IndexMut<Piece> for [Bitboard] {
-    fn index_mut(&mut self, index: Piece) -> &mut Self::Output {
-        &mut self[index as usize]
-    }
-}
+index_traits!(Piece);
 
 pub enum Color {
     White,
     Black,
 }
 pub const NUM_COLORS: usize = 2;
-
-impl Index<Color> for [Bitboard] {
-    type Output = Bitboard;
-
-    fn index(&self, index: Color) -> &Self::Output {
-        &self[index as usize]
-    }
-}
-
-impl IndexMut<Color> for [Bitboard] {
-    fn index_mut(&mut self, index: Color) -> &mut Self::Output {
-        &mut self[index as usize]
-    }
-}
+index_traits!(Color);
