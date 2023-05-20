@@ -21,6 +21,14 @@ macro_rules! index_traits {
 
 pub type Bitboard = u64;
 
+// used in move generation for bounds checking, can be bitwise AND-ed with piece position to mask out pieces on a certain file
+#[repr(u64)]
+pub enum FileBoundMask {
+    A = 0x7F_7F_7F_7F_7F_7F_7F_7F,
+    // ...
+    H = 0xFE_FE_FE_FE_FE_FE_FE_FE,
+}
+
 pub enum Piece {
     Pawn,
     Knight,

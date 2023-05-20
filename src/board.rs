@@ -1,4 +1,7 @@
-use crate::types::{Bitboard, Color, Piece, NUM_COLORS, NUM_PIECES};
+use crate::{
+    move_generator::generate_king_moves,
+    types::{Bitboard, Color, Piece, NUM_COLORS, NUM_PIECES},
+};
 
 pub struct Board {
     pieces: [Bitboard; NUM_PIECES],
@@ -50,12 +53,22 @@ impl Board {
                         _ => panic!("invalid symbol in fen string"),
                     }
 
-                    // finally 'increment' index
+                    // finally increment index
                     index >>= 1;
                 }
             }
         }
+        // TODO - other game state info from FEN string
 
         Board { pieces, colors }
+    }
+
+    pub fn generate_moves(&self) {
+        let king_moves = generate_king_moves(
+            // TODO - make method to get pieces of a particular color
+            // TODO - use game state to know which side is moving
+            self.pieces[Piece::King] & self.colors[Color::White],
+            self.colors[Color::White],
+        );
     }
 }
