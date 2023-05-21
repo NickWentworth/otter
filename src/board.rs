@@ -1,5 +1,5 @@
 use crate::{
-    move_generator::generate_king_moves,
+    move_generator::{generate_king_moves, generate_knight_moves},
     types::{Bitboard, Color, Piece, NUM_COLORS, NUM_PIECES},
 };
 
@@ -68,6 +68,11 @@ impl Board {
             // TODO - make method to get pieces of a particular color
             // TODO - use game state to know which side is moving
             self.pieces[Piece::King] & self.colors[Color::White],
+            self.colors[Color::White],
+        );
+
+        let knight_moves = generate_knight_moves(
+            self.pieces[Piece::Knight] & self.colors[Color::White],
             self.colors[Color::White],
         );
     }

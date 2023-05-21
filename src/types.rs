@@ -25,7 +25,9 @@ pub type Bitboard = u64;
 #[repr(u64)]
 pub enum FileBoundMask {
     A = 0x7F_7F_7F_7F_7F_7F_7F_7F,
+    B = 0xBF_BF_BF_BF_BF_BF_BF_BF,
     // ...
+    G = 0xFD_FD_FD_FD_FD_FD_FD_FD,
     H = 0xFE_FE_FE_FE_FE_FE_FE_FE,
 }
 
