@@ -21,6 +21,16 @@ macro_rules! index_traits {
 
 pub type Bitboard = u64;
 
+// debug method to print the contents of the bitboard
+pub fn print_bitboard(b: Bitboard) {
+    for rank in b.to_be_bytes() {
+        for i in (0..8).rev() {
+            print!("{} ", (rank >> i) & 1);
+        }
+        println!();
+    }
+}
+
 // used in move generation for bounds checking, can be bitwise AND-ed with piece position to mask out pieces on a certain file
 #[repr(u64)]
 pub enum FileBoundMask {
