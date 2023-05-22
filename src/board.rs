@@ -3,13 +3,26 @@ use crate::{
     types::{Bitboard, Color, Piece, NUM_COLORS, NUM_PIECES},
 };
 
+struct GameState {
+    current_turn: Color,
+    white_king_castle: bool, // castling availability for each color and king/queen side
+    white_queen_castle: bool,
+    black_king_castle: bool,
+    black_queen_castle: bool,
+    en_passant_square: u8,
+    halfmove: u32, // halfmove counter, incremented after each color's move
+    fullmove: u32, // fullmove counter, only incremented after black's move
+}
+
 pub struct Board {
     pieces: [Bitboard; NUM_PIECES],
     colors: [Bitboard; NUM_COLORS],
+    game_state: GameState,
 }
 
 impl Board {
     pub fn new(fen: &str) -> Self {
+        // TODO - check that the fen string is valid first
         let fen_parts: Vec<&str> = fen.split(' ').collect();
 
         assert!(fen_parts.len() == 6, "invalid fen string given");
@@ -58,9 +71,25 @@ impl Board {
                 }
             }
         }
-        // TODO - other game state info from FEN string
 
-        Board { pieces, colors }
+        Board {
+            pieces,
+            colors,
+            game_state: GameState {
+                current_turn: if fen_parts[1] == "w" {
+                    Color::White
+                } else {
+                    Color::Black
+                },
+                white_king_castle: fen_parts[2].contains('K'),
+                white_queen_castle: fen_parts[2].contains('Q'),
+                black_king_castle: fen_parts[2].contains('k'),
+                black_queen_castle: fen_parts[2].contains('q'),
+                en_passant_square: 0, // TODO - en passant square is given as algebraic notation (ex: b4), need to parse it into an index
+                halfmove: fen_parts[4].parse().unwrap(),
+                fullmove: fen_parts[5].parse().unwrap(),
+            },
+        }
     }
 
     pub fn generate_moves(&self) {
