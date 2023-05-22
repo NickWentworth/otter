@@ -1,4 +1,5 @@
 use crate::{
+    fen::{check_valid_fen, DEFAULT_FEN},
     move_generator::{generate_king_moves, generate_knight_moves},
     types::{Bitboard, Color, Piece, NUM_COLORS, NUM_PIECES},
 };
@@ -22,10 +23,15 @@ pub struct Board {
 
 impl Board {
     pub fn new(fen: &str) -> Self {
-        // TODO - check that the fen string is valid first
-        let fen_parts: Vec<&str> = fen.split(' ').collect();
-
-        assert!(fen_parts.len() == 6, "invalid fen string given");
+        // check if the given string is valid
+        let fen_parts: Vec<&str> = if check_valid_fen(fen) {
+            fen
+        } else {
+            // if not, just use the default fen string for now
+            DEFAULT_FEN
+        }
+        .split(' ')
+        .collect();
 
         // build the bitboards for the struct
         let mut pieces: [Bitboard; NUM_PIECES] = [0; NUM_PIECES];
