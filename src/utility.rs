@@ -51,3 +51,13 @@ impl FileBoundMask {
     pub const G: Bitboard = 0xFD_FD_FD_FD_FD_FD_FD_FD;
     pub const H: Bitboard = 0xFE_FE_FE_FE_FE_FE_FE_FE;
 }
+
+// used in move generation to check if a piece is on a rank, can be bitwise AND-ed with piece position to mask out pieces NOT on a certain rank
+pub struct RankPositionMask;
+impl RankPositionMask {
+    // ...
+    pub const THIRD: Bitboard = 0x00_00_00_00_00_FF_00_00;
+    // ...
+    pub const SIXTH: Bitboard = 0x00_00_FF_00_00_00_00_00;
+    // ...
+}

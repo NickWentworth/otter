@@ -1,6 +1,9 @@
 use crate::{
     fen::{check_valid_fen, DEFAULT_FEN},
-    move_generator::{generate_king_moves, generate_knight_moves},
+    move_generator::{
+        generate_black_pawn_moves, generate_king_moves, generate_knight_moves,
+        generate_white_pawn_moves,
+    },
     types::{Bitboard, Color, Piece, Square, NUM_COLORS, NUM_PIECES},
     utility::square_from_algebraic,
 };
@@ -111,6 +114,18 @@ impl Board {
         //        for example, if two pieces can move to the same spot, data is lost
         let knight_moves = generate_knight_moves(
             self.pieces[Piece::Knight] & self.colors[Color::White],
+            self.colors[Color::White],
+        );
+
+        let white_pawn_moves = generate_white_pawn_moves(
+            self.pieces[Piece::Pawn] & self.colors[Color::White],
+            self.colors[Color::White],
+            self.colors[Color::Black],
+        );
+
+        let black_pawn_moves = generate_black_pawn_moves(
+            self.pieces[Piece::Pawn] & self.colors[Color::Black],
+            self.colors[Color::Black],
             self.colors[Color::White],
         );
     }

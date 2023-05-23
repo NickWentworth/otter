@@ -1,5 +1,5 @@
 use crate::types::Bitboard;
-use crate::utility::FileBoundMask;
+use crate::utility::{FileBoundMask, RankPositionMask};
 
 // board move representation:
 // 1  4  6
@@ -73,4 +73,64 @@ pub fn generate_knight_moves(knight_position: Bitboard, same_color_pieces: Bitbo
     let valid_moves = all_moves & !same_color_pieces;
 
     valid_moves
+}
+
+// board move representation:
+// .  2  .
+// 3  1  4
+// . (P) .
+// move 3 needs to be bounds checked against A file
+// move 4 needs to be bounds checked against H file
+// TODO - en passant moves
+pub fn generate_white_pawn_moves(
+    pawn_position: Bitboard,
+    white_pieces: Bitboard,
+    black_pieces: Bitboard,
+) -> Bitboard {
+    // get squares where no pieces sit on
+    let no_pieces = !white_pieces & !black_pieces;
+
+    // pawn can move forward unless any color piece blocks its way
+    let forward_move = (pawn_position << 8) & no_pieces;
+
+    // pawn can double move forward if forward move was successful, pawn was on second rank (now third), and same rules apply with blocking pieces
+    let double_move = ((forward_move & RankPositionMask::THIRD) << 8) & no_pieces;
+
+    // for attacks to happen, an opposite colored piece has to be on the square
+    let left_attack = (pawn_position & FileBoundMask::A) << 9;
+    let right_attack = (pawn_position & FileBoundMask::H) << 7;
+    let valid_attacks = (left_attack | right_attack) & black_pieces;
+
+    // moves are combination of forward moves, double moves, and attack moves
+    forward_move | double_move | valid_attacks
+}
+
+// board move representation:
+// . (P) .
+// 3  1  4
+// .  2 .
+// move 3 needs to be bounds checked against A file
+// move 4 needs to be bounds checked against H file
+// TODO - en passant moves
+pub fn generate_black_pawn_moves(
+    pawn_position: Bitboard,
+    black_pieces: Bitboard,
+    white_pieces: Bitboard,
+) -> Bitboard {
+    // get squares where no pieces sit on
+    let no_pieces = !white_pieces & !black_pieces;
+
+    // pawn can move forward unless any color piece blocks its way
+    let forward_move = (pawn_position >> 8) & no_pieces;
+
+    // pawn can double move forward if forward move was successful, pawn was on second rank (now third), and same rules apply with blocking pieces
+    let double_move = ((forward_move & RankPositionMask::SIXTH) >> 8) & no_pieces;
+
+    // for attacks to happen, an opposite colored piece has to be on the square
+    let left_attack = (pawn_position & FileBoundMask::A) >> 7;
+    let right_attack = (pawn_position & FileBoundMask::H) >> 9;
+    let valid_attacks = (left_attack | right_attack) & white_pieces;
+
+    // moves are combination of forward moves, double moves, and attack moves
+    forward_move | double_move | valid_attacks
 }
