@@ -1,4 +1,5 @@
-use crate::types::{Bitboard, FileBoundMask};
+use crate::types::Bitboard;
+use crate::utility::FileBoundMask;
 
 // board move representation:
 // 1  4  6
@@ -10,8 +11,8 @@ use crate::types::{Bitboard, FileBoundMask};
 pub fn generate_king_moves(king_position: Bitboard, same_color_pieces: Bitboard) -> Bitboard {
     // bounds check against files by bitwise AND king position with a file mask, where all bits in that file are 0
     // if the king is on that file, the king bit will disappear
-    let king_position_not_a_file = king_position & (FileBoundMask::A as Bitboard);
-    let king_position_not_h_file = king_position & (FileBoundMask::H as Bitboard);
+    let king_position_not_a_file = king_position & FileBoundMask::A;
+    let king_position_not_h_file = king_position & FileBoundMask::H;
 
     // first shift the king position in each direction, applying bounds checking when needed
     let moves: [Bitboard; 8] = [
@@ -36,11 +37,11 @@ pub fn generate_king_moves(king_position: Bitboard, same_color_pieces: Bitboard)
 }
 
 // board move representation:
-//    3     5
-// 1           7
-//      (N)
-// 2           8
-//    4     6
+// .  3  .  5  .
+// 1  .  .  .  7
+// .  . (N) .  .
+// 2  .  .  .  8
+//    4  .  6  .
 // moves 1,2 need to be bounds checked against A and B file
 // moves 3,4 need to be bounds checked against A file
 // moves 5,6 need to be bounds checked against H file
@@ -48,21 +49,21 @@ pub fn generate_king_moves(king_position: Bitboard, same_color_pieces: Bitboard)
 // TODO - this method is verrrry similar to king moves, maybe some parts can be combined
 pub fn generate_knight_moves(knight_position: Bitboard, same_color_pieces: Bitboard) -> Bitboard {
     // bounds check against files
-    let knight_position_not_a_file = knight_position & (FileBoundMask::A as Bitboard);
-    let knight_position_not_h_file = knight_position & (FileBoundMask::H as Bitboard);
-    let knight_position_not_ab_file = knight_position_not_a_file & (FileBoundMask::B as Bitboard);
-    let knight_position_not_gh_file = knight_position_not_h_file & (FileBoundMask::G as Bitboard);
+    let knight_position_not_a_file = knight_position & FileBoundMask::A;
+    let knight_position_not_h_file = knight_position & FileBoundMask::H;
+    let knight_position_not_ab_file = knight_position_not_a_file & FileBoundMask::B;
+    let knight_position_not_gh_file = knight_position_not_h_file & FileBoundMask::G;
 
     // first shift the knight position in each L shape, applying bounds checking when needed
     let moves: [Bitboard; 8] = [
-        (knight_position_not_ab_file) << 10,
-        (knight_position_not_ab_file) >> 6,
+        knight_position_not_ab_file << 10,
+        knight_position_not_ab_file >> 6,
         knight_position_not_a_file << 17,
         knight_position_not_a_file >> 15,
         knight_position_not_h_file << 15,
         knight_position_not_h_file >> 17,
-        (knight_position_not_gh_file) << 6,
-        (knight_position_not_gh_file) >> 10,
+        knight_position_not_gh_file << 6,
+        knight_position_not_gh_file >> 10,
     ];
 
     // bitwise OR all moves together, all 1's will appear in this bitboard

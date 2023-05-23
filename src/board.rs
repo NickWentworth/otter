@@ -1,7 +1,8 @@
 use crate::{
     fen::{check_valid_fen, DEFAULT_FEN},
     move_generator::{generate_king_moves, generate_knight_moves},
-    types::{algebraic_to_square, Bitboard, Color, Piece, NUM_COLORS, NUM_PIECES},
+    types::{Bitboard, Color, Piece, Square, NUM_COLORS, NUM_PIECES},
+    utility::square_from_algebraic,
 };
 
 struct GameState {
@@ -10,7 +11,7 @@ struct GameState {
     white_queen_castle: bool,
     black_king_castle: bool,
     black_queen_castle: bool,
-    en_passant_square: Option<u8>,
+    en_passant_square: Option<Square>,
     halfmove: u32, // halfmove counter, incremented after each color's move
     fullmove: u32, // fullmove counter, only incremented after black's move
 }
@@ -39,7 +40,7 @@ impl Board {
 
         // index bitboard to be AND-ed with piece/color bitboards, bitwise looks like 1000...0000
         // instead of being incremented, this is right-shifted to move the 1 over
-        let mut index: Bitboard = 0x8000_0000_0000_0000;
+        let mut index: Bitboard = 0x80_00_00_00_00_00_00_00;
 
         for symbol in fen_parts[0].chars() {
             match symbol {
@@ -91,7 +92,7 @@ impl Board {
                 white_queen_castle: fen_parts[2].contains('Q'),
                 black_king_castle: fen_parts[2].contains('k'),
                 black_queen_castle: fen_parts[2].contains('q'),
-                en_passant_square: algebraic_to_square(fen_parts[3]),
+                en_passant_square: square_from_algebraic(fen_parts[3]), // will handle correctly if passed "-"
                 halfmove: fen_parts[4].parse().unwrap(),
                 fullmove: fen_parts[5].parse().unwrap(),
             },
@@ -106,6 +107,8 @@ impl Board {
             self.colors[Color::White],
         );
 
+        // TODO - generate move methods should probably return move lists instead of bitboards
+        //        for example, if two pieces can move to the same spot, data is lost
         let knight_moves = generate_knight_moves(
             self.pieces[Piece::Knight] & self.colors[Color::White],
             self.colors[Color::White],
