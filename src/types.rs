@@ -33,6 +33,7 @@ pub enum Piece {
 pub const NUM_PIECES: usize = 6;
 index_traits!(Piece);
 
+#[derive(Clone, Copy)]
 pub enum Color {
     White,
     Black,

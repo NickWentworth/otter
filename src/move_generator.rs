@@ -1,5 +1,52 @@
-use crate::types::Bitboard;
+use crate::board::Board;
+use crate::types::{Bitboard, Color, Piece, Square};
 use crate::utility::{FileBoundMask, RankPositionMask};
+
+pub struct Move {
+    from: Square,
+    to: Square,
+}
+
+impl Move {
+    fn new(from: Square, to: Square) -> Self {
+        Move { from, to }
+    }
+}
+
+// TODO - if two similar pieces can move to the same spot, data is lost
+//        to fix this, separate each piece into its own bitboard and then generate its move
+// generates a vector of all valid moves (currently just pseudo-legal ones, checks not considered)
+pub fn generate_moves(board: &Board) -> Vec<Move> {
+    let mut moves: Vec<Move> = Vec::new();
+
+    let king_moves = generate_king_moves(
+        board.active_piece_board(Piece::King),
+        board.active_color_board(),
+    );
+
+    let knight_moves = generate_knight_moves(
+        board.active_piece_board(Piece::Knight),
+        board.active_color_board(),
+    );
+
+    let pawn_moves = match board.active_color() {
+        Color::White => generate_white_pawn_moves(
+            board.active_piece_board(Piece::Pawn),
+            board.active_color_board(),
+            board.inactive_color_board(),
+        ),
+        Color::Black => generate_black_pawn_moves(
+            board.active_piece_board(Piece::Pawn),
+            board.active_color_board(),
+            board.inactive_color_board(),
+        ),
+    };
+
+    // TODO - generate sliding piece moves
+    // TODO - convert move bitboards to move structs
+
+    moves
+}
 
 // board move representation:
 // 1  4  6
@@ -8,7 +55,7 @@ use crate::utility::{FileBoundMask, RankPositionMask};
 // moves 1,2,3 need to be bounds checked against A file
 // moves 6,7,8 need to be bounds checked against H file
 // moves don't need to be bounds checked against ranks, overflow will handle them
-pub fn generate_king_moves(king_position: Bitboard, same_color_pieces: Bitboard) -> Bitboard {
+fn generate_king_moves(king_position: Bitboard, same_color_pieces: Bitboard) -> Bitboard {
     // bounds check against files by bitwise AND king position with a file mask, where all bits in that file are 0
     // if the king is on that file, the king bit will disappear
     let king_position_not_a_file = king_position & FileBoundMask::A;
@@ -47,7 +94,7 @@ pub fn generate_king_moves(king_position: Bitboard, same_color_pieces: Bitboard)
 // moves 5,6 need to be bounds checked against H file
 // moves 7,8 need to be bounds checked against G and H file
 // TODO - this method is verrrry similar to king moves, maybe some parts can be combined
-pub fn generate_knight_moves(knight_position: Bitboard, same_color_pieces: Bitboard) -> Bitboard {
+fn generate_knight_moves(knight_position: Bitboard, same_color_pieces: Bitboard) -> Bitboard {
     // bounds check against files
     let knight_position_not_a_file = knight_position & FileBoundMask::A;
     let knight_position_not_h_file = knight_position & FileBoundMask::H;
@@ -82,7 +129,7 @@ pub fn generate_knight_moves(knight_position: Bitboard, same_color_pieces: Bitbo
 // move 3 needs to be bounds checked against A file
 // move 4 needs to be bounds checked against H file
 // TODO - en passant moves
-pub fn generate_white_pawn_moves(
+fn generate_white_pawn_moves(
     pawn_position: Bitboard,
     white_pieces: Bitboard,
     black_pieces: Bitboard,
@@ -112,7 +159,7 @@ pub fn generate_white_pawn_moves(
 // move 3 needs to be bounds checked against A file
 // move 4 needs to be bounds checked against H file
 // TODO - en passant moves
-pub fn generate_black_pawn_moves(
+fn generate_black_pawn_moves(
     pawn_position: Bitboard,
     black_pieces: Bitboard,
     white_pieces: Bitboard,

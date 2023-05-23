@@ -1,9 +1,5 @@
 use crate::{
     fen::{check_valid_fen, DEFAULT_FEN},
-    move_generator::{
-        generate_black_pawn_moves, generate_king_moves, generate_knight_moves,
-        generate_white_pawn_moves,
-    },
     types::{Bitboard, Color, Piece, Square, NUM_COLORS, NUM_PIECES},
     utility::square_from_algebraic,
 };
@@ -102,31 +98,26 @@ impl Board {
         }
     }
 
-    pub fn generate_moves(&self) {
-        let king_moves = generate_king_moves(
-            // TODO - make method to get pieces of a particular color
-            // TODO - use game state to know which side is moving
-            self.pieces[Piece::King] & self.colors[Color::White],
-            self.colors[Color::White],
-        );
+    // returns pieces matching a type that can move this turn
+    pub fn active_piece_board(&self, piece: Piece) -> Bitboard {
+        self.pieces[piece] & self.active_color_board()
+    }
 
-        // TODO - generate move methods should probably return move lists instead of bitboards
-        //        for example, if two pieces can move to the same spot, data is lost
-        let knight_moves = generate_knight_moves(
-            self.pieces[Piece::Knight] & self.colors[Color::White],
-            self.colors[Color::White],
-        );
+    // returns the bitboard of the current moving color
+    pub fn active_color_board(&self) -> Bitboard {
+        self.colors[self.game_state.current_turn]
+    }
 
-        let white_pawn_moves = generate_white_pawn_moves(
-            self.pieces[Piece::Pawn] & self.colors[Color::White],
-            self.colors[Color::White],
-            self.colors[Color::Black],
-        );
+    // returns the bitboard of the current non-moving color
+    pub fn inactive_color_board(&self) -> Bitboard {
+        match self.game_state.current_turn {
+            Color::White => self.colors[Color::Black],
+            Color::Black => self.colors[Color::White],
+        }
+    }
 
-        let black_pawn_moves = generate_black_pawn_moves(
-            self.pieces[Piece::Pawn] & self.colors[Color::Black],
-            self.colors[Color::Black],
-            self.colors[Color::White],
-        );
+    // returns color enum of the moving color
+    pub fn active_color(&self) -> Color {
+        self.game_state.current_turn
     }
 }
