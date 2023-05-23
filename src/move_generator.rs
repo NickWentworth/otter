@@ -1,7 +1,8 @@
 use crate::board::Board;
 use crate::types::{Bitboard, Color, Piece, Square};
-use crate::utility::{FileBoundMask, RankPositionMask};
+use crate::utility::{pop_msb_1, FileBoundMask, RankPositionMask};
 
+#[derive(Debug)]
 pub struct Move {
     from: Square,
     to: Square,
@@ -13,37 +14,50 @@ impl Move {
     }
 }
 
-// TODO - if two similar pieces can move to the same spot, data is lost
-//        to fix this, separate each piece into its own bitboard and then generate its move
 // generates a vector of all valid moves (currently just pseudo-legal ones, checks not considered)
 pub fn generate_moves(board: &Board) -> Vec<Move> {
+    use Piece::*;
+
     let mut moves: Vec<Move> = Vec::new();
 
-    let king_moves = generate_king_moves(
-        board.active_piece_board(Piece::King),
-        board.active_color_board(),
-    );
+    // iterate through each type of piece
+    for piece in [Pawn, Knight, Bishop, Rook, Queen, King] {
+        // get the bitboard representing the pieces that can move of this type
+        let mut pieces_board = board.active_piece_board(piece);
 
-    let knight_moves = generate_knight_moves(
-        board.active_piece_board(Piece::Knight),
-        board.active_color_board(),
-    );
+        // go through each position that this piece occurs in and pop it from the pieces bitboard
+        while pieces_board != 0 {
+            let from = pop_msb_1(&mut pieces_board);
+            let position = 0x80_00_00_00_00_00_00_00 >> from;
 
-    let pawn_moves = match board.active_color() {
-        Color::White => generate_white_pawn_moves(
-            board.active_piece_board(Piece::Pawn),
-            board.active_color_board(),
-            board.inactive_color_board(),
-        ),
-        Color::Black => generate_black_pawn_moves(
-            board.active_piece_board(Piece::Pawn),
-            board.active_color_board(),
-            board.inactive_color_board(),
-        ),
-    };
+            // generate the correct move bitboard
+            let mut moves_board = match piece {
+                Pawn => match board.active_color() {
+                    Color::White => generate_white_pawn_moves(
+                        position,
+                        board.active_color_board(),
+                        board.inactive_color_board(),
+                    ),
+                    Color::Black => generate_black_pawn_moves(
+                        position,
+                        board.active_color_board(),
+                        board.inactive_color_board(),
+                    ),
+                },
+                Knight => generate_knight_moves(position, board.active_color_board()),
+                Bishop => 0, // TODO - generate sliding piece moves
+                Rook => 0,   // TODO - generate sliding piece moves
+                Queen => 0,  // TODO - generate sliding piece moves
+                King => generate_king_moves(position, board.active_color_board()),
+            };
 
-    // TODO - generate sliding piece moves
-    // TODO - convert move bitboards to move structs
+            // and similarly pop each bit from the bitboard, pushing a move to the list as we go
+            while moves_board != 0 {
+                let to = pop_msb_1(&mut moves_board);
+                moves.push(Move::new(from, to));
+            }
+        }
+    }
 
     moves
 }

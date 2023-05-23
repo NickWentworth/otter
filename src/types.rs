@@ -22,6 +22,7 @@ macro_rules! index_traits {
 pub type Bitboard = u64;
 pub type Square = u8;
 
+#[derive(Clone, Copy)]
 pub enum Piece {
     Pawn,
     Knight,

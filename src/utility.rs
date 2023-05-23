@@ -13,6 +13,16 @@ pub fn display_bitboard(bitboard: Bitboard) {
     }
 }
 
+// takes in a bitboard, removes its most significant 1 bit in-place, and returns the index it occurs at as a square
+pub fn pop_msb_1(bitboard: &mut Bitboard) -> Square {
+    let num_zeros = bitboard.leading_zeros() as Square;
+
+    // shift a 1 by number of squares and XOR with bitboard to remove the 1 bit
+    *bitboard ^= 0x80_00_00_00_00_00_00_00 >> num_zeros;
+
+    num_zeros
+}
+
 // converts a string in algebraic notation (ex: b4) to integer type
 pub fn square_from_algebraic(algebraic: &str) -> Option<Square> {
     let file: Square = match algebraic.chars().nth(0)? {
