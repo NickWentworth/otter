@@ -1,8 +1,8 @@
-use crate::types::{Bitboard, Square};
+use crate::types::{Bitboard, Color, Square};
 
 // general utility methods used throughout the program
 
-// nicely displays the bitboard to look like the chessboard
+/// Nicely displays the bitboard, formatted like a chessboard with 0's and 1's.
 #[allow(dead_code)]
 pub fn display_bitboard(bitboard: Bitboard) {
     for rank in bitboard.to_be_bytes() {
@@ -13,7 +13,7 @@ pub fn display_bitboard(bitboard: Bitboard) {
     }
 }
 
-// takes in a bitboard, removes its most significant 1 bit in-place, and returns the index it occurs at as a square
+/// Removes the bitboard's most significant 1 bit (in-place) and returns the index that bit was on as a `Square`
 pub fn pop_msb_1(bitboard: &mut Bitboard) -> Square {
     let num_zeros = bitboard.leading_zeros() as Square;
 
@@ -23,7 +23,7 @@ pub fn pop_msb_1(bitboard: &mut Bitboard) -> Square {
     num_zeros
 }
 
-// converts a string in algebraic notation (ex: b4) to integer type
+/// Tries to convert an algebraic notation string (ex: "b4") to a `Square` on the board, returning an option
 pub fn square_from_algebraic(algebraic: &String) -> Option<Square> {
     let file: Square = match algebraic.chars().nth(0)? {
         'a' => 0,
@@ -52,7 +52,9 @@ pub fn square_from_algebraic(algebraic: &String) -> Option<Square> {
     Some((rank * 8) + file)
 }
 
-// used in move generation for bounds checking, can be bitwise AND-ed with piece position to mask out pieces on a certain file
+/// Used in move generation for bounds checking
+///
+/// Can be bitwise AND-ed with piece position to mask out pieces on a certain file
 pub struct FileBoundMask;
 impl FileBoundMask {
     pub const A: Bitboard = 0x7F_7F_7F_7F_7F_7F_7F_7F;
@@ -62,7 +64,9 @@ impl FileBoundMask {
     pub const H: Bitboard = 0xFE_FE_FE_FE_FE_FE_FE_FE;
 }
 
-// used in move generation to check if a piece is on a rank, can be bitwise AND-ed with piece position to mask out pieces NOT on a certain rank
+/// Used in move generation to check if a piece is on a rank
+///
+/// Can be bitwise AND-ed with piece position to mask out pieces NOT on a certain rank
 pub struct RankPositionMask;
 impl RankPositionMask {
     // ...
@@ -71,3 +75,8 @@ impl RankPositionMask {
     pub const SIXTH: Bitboard = 0x00_00_FF_00_00_00_00_00;
     // ...
 }
+
+/// A special bitboard used for indexing, the MSB is set to 1 and all other bits are 0
+///
+/// To index other squares, this can be right shifted
+pub const MSB_BOARD: Bitboard = 0x80_00_00_00_00_00_00_00;

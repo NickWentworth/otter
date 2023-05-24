@@ -1,9 +1,10 @@
 use crate::{
     fen::{check_valid_fen, DEFAULT_FEN},
     types::{Bitboard, Color, Piece, Square, NUM_COLORS, NUM_PIECES},
-    utility::square_from_algebraic,
+    utility::{square_from_algebraic, MSB_BOARD},
 };
 
+/// Variables related to conditions of the game
 struct GameState {
     current_turn: Color,
     white_king_castle: bool, // castling availability for each color and king/queen side
@@ -15,6 +16,7 @@ struct GameState {
     fullmove: u32, // fullmove counter, only incremented after black's move
 }
 
+/// Overall representation of a chess game
 pub struct Board {
     pieces: [Bitboard; NUM_PIECES],
     colors: [Bitboard; NUM_COLORS],
@@ -22,7 +24,10 @@ pub struct Board {
 }
 
 impl Board {
-    pub fn new(fen: String) -> Self {
+    /// Generates a new `Board` from a given FEN string
+    ///
+    /// The FEN string is validated, if invalid the board is set to the start state of the chess game
+    pub fn new(fen: String) -> Board {
         // check if the given string is valid
         let fen_parts: Vec<String> = if check_valid_fen(&fen) {
             fen
@@ -40,7 +45,7 @@ impl Board {
 
         // index bitboard to be AND-ed with piece/color bitboards, bitwise looks like 1000...0000
         // instead of being incremented, this is right-shifted to move the 1 over
-        let mut index: Bitboard = 0x80_00_00_00_00_00_00_00;
+        let mut index: Bitboard = MSB_BOARD;
 
         for symbol in fen_parts[0].chars() {
             match symbol {
@@ -99,25 +104,22 @@ impl Board {
         }
     }
 
-    // returns pieces matching a type that can move this turn
+    /// Returns a bitboard of pieces matching the given type that can move this turn
     pub fn active_piece_board(&self, piece: Piece) -> Bitboard {
         self.pieces[piece] & self.active_color_board()
     }
 
-    // returns the bitboard of the current moving color
+    /// Returns the bitboard of the current moving color
     pub fn active_color_board(&self) -> Bitboard {
         self.colors[self.game_state.current_turn]
     }
 
-    // returns the bitboard of the current non-moving color
+    /// Returns the bitboard of the current non-moving color
     pub fn inactive_color_board(&self) -> Bitboard {
-        match self.game_state.current_turn {
-            Color::White => self.colors[Color::Black],
-            Color::Black => self.colors[Color::White],
-        }
+        self.colors[self.game_state.current_turn.opposite()]
     }
 
-    // returns color enum of the moving color
+    /// Returns the color enum of the current moving color
     pub fn active_color(&self) -> Color {
         self.game_state.current_turn
     }

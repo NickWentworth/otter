@@ -1,20 +1,23 @@
 use crate::board::Board;
 use crate::types::{Bitboard, Color, Piece, Square};
-use crate::utility::{pop_msb_1, FileBoundMask, RankPositionMask};
+use crate::utility::{pop_msb_1, FileBoundMask, RankPositionMask, MSB_BOARD};
 
-#[derive(Debug)]
+/// Describes a move on the board and information related to that move
 pub struct Move {
     from: Square,
     to: Square,
+    // TODO - add flags to help modify game state (new en passant square, change in castling availability, etc.)
 }
 
 impl Move {
-    fn new(from: Square, to: Square) -> Self {
+    fn new(from: Square, to: Square) -> Move {
         Move { from, to }
     }
 }
 
-// generates a vector of all valid moves (currently just pseudo-legal ones, checks not considered)
+/// Generates a `Vec<Move>` containing all valid moves, given a board state
+///
+/// Currently just pseudo-legal moves, checks are not considered
 pub fn generate_moves(board: &Board) -> Vec<Move> {
     use Piece::*;
 
@@ -28,7 +31,7 @@ pub fn generate_moves(board: &Board) -> Vec<Move> {
         // go through each position that this piece occurs in and pop it from the pieces bitboard
         while pieces_board != 0 {
             let from = pop_msb_1(&mut pieces_board);
-            let position = 0x80_00_00_00_00_00_00_00 >> from;
+            let position = MSB_BOARD >> from;
 
             // generate the correct move bitboard
             let mut moves_board = match piece {
@@ -102,7 +105,7 @@ fn generate_king_moves(king_position: Bitboard, same_color_pieces: Bitboard) -> 
 // 1  .  .  .  7
 // .  . (N) .  .
 // 2  .  .  .  8
-//    4  .  6  .
+// .  4  .  6  .
 // moves 1,2 need to be bounds checked against A and B file
 // moves 3,4 need to be bounds checked against A file
 // moves 5,6 need to be bounds checked against H file
