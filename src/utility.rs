@@ -24,7 +24,7 @@ pub fn pop_msb_1(bitboard: &mut Bitboard) -> Square {
 }
 
 // converts a string in algebraic notation (ex: b4) to integer type
-pub fn square_from_algebraic(algebraic: &str) -> Option<Square> {
+pub fn square_from_algebraic(algebraic: &String) -> Option<Square> {
     let file: Square = match algebraic.chars().nth(0)? {
         'a' => 0,
         'b' => 1,

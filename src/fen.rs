@@ -5,7 +5,7 @@ pub const DEFAULT_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQk
 const FEN_REGEX: &str = r"^((P|N|B|R|Q|K|p|n|b|r|q|k|1){8}/){7}(P|N|B|R|Q|K|p|n|b|r|q|k|1){8} (w|b) (-|(K?Q?k?q?)) (-|[a-h](3|6)) [[:digit:]]* [[:digit:]]*$";
 // portions:               pieces                                                             turn  castling       en passant     halfmove     fullmove
 
-pub fn check_valid_fen(fen: &str) -> bool {
+pub fn check_valid_fen(fen: &String) -> bool {
     let regex = regex::Regex::new(FEN_REGEX);
 
     // to make regex matching more exact, replace all occurrences of a digit with that number of 1's

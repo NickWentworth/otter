@@ -22,15 +22,16 @@ pub struct Board {
 }
 
 impl Board {
-    pub fn new(fen: &str) -> Self {
+    pub fn new(fen: String) -> Self {
         // check if the given string is valid
-        let fen_parts: Vec<&str> = if check_valid_fen(fen) {
+        let fen_parts: Vec<String> = if check_valid_fen(&fen) {
             fen
         } else {
             // if not, just use the default fen string for now
-            DEFAULT_FEN
+            DEFAULT_FEN.to_string()
         }
-        .split(' ')
+        .split(" ")
+        .map(|s| s.to_string())
         .collect();
 
         // build the bitboards for the struct
@@ -91,7 +92,7 @@ impl Board {
                 white_queen_castle: fen_parts[2].contains('Q'),
                 black_king_castle: fen_parts[2].contains('k'),
                 black_queen_castle: fen_parts[2].contains('q'),
-                en_passant_square: square_from_algebraic(fen_parts[3]), // will handle correctly if passed "-"
+                en_passant_square: square_from_algebraic(&fen_parts[3]), // will handle correctly if passed "-"
                 halfmove: fen_parts[4].parse().unwrap(),
                 fullmove: fen_parts[5].parse().unwrap(),
             },
