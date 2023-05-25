@@ -1,5 +1,6 @@
 use crate::{
     fen::{check_valid_fen, DEFAULT_FEN},
+    move_generator::Move,
     types::{Bitboard, Color, Piece, Square, NUM_COLORS, NUM_PIECES},
     utility::{square_from_algebraic, MSB_BOARD},
 };
@@ -104,17 +105,42 @@ impl Board {
         }
     }
 
-    /// Returns a bitboard of pieces matching the given type that can move this turn
+    /// Makes the given move and updates game state accordingly
+    ///
+    /// Assumes `m` is a valid and legal move
+    pub fn make_move(&mut self, m: &Move) {
+        // store locally because of borrow checker
+        let moving_color = self.active_color();
+
+        // bitwise XOR with a board with 1's at both from and to squares for colors
+        // the from location will be set to 0 and the to location will be set to 1
+        // other locations will be left unchanged (0^0 = 0, 1^0 = 1)
+        let move_board = (MSB_BOARD >> m.from) | (MSB_BOARD >> m.to);
+
+        // apply the changes
+        self.colors[moving_color] ^= move_board;
+        self.pieces[m.piece] ^= move_board;
+
+        // update game state
+        // TODO - more updating needs to be done after further move flags are added
+        if moving_color == Color::Black {
+            self.game_state.fullmove += 1;
+        }
+
+        self.game_state.current_turn = self.game_state.current_turn.opposite();
+    }
+
+    /// Generates a bitboard of pieces matching the given type that can move this turn
     pub fn active_piece_board(&self, piece: Piece) -> Bitboard {
         self.pieces[piece] & self.active_color_board()
     }
 
-    /// Returns the bitboard of the current moving color
+    /// Returns a copy of the bitboard of the current moving color
     pub fn active_color_board(&self) -> Bitboard {
         self.colors[self.game_state.current_turn]
     }
 
-    /// Returns the bitboard of the current non-moving color
+    /// Returns a copy of the bitboard of the current non-moving color
     pub fn inactive_color_board(&self) -> Bitboard {
         self.colors[self.game_state.current_turn.opposite()]
     }

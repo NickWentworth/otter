@@ -4,15 +4,10 @@ use crate::utility::{pop_msb_1, FileBoundMask, RankPositionMask, MSB_BOARD};
 
 /// Describes a move on the board and information related to that move
 pub struct Move {
-    from: Square,
-    to: Square,
+    pub from: Square,
+    pub to: Square,
+    pub piece: Piece,
     // TODO - add flags to help modify game state (new en passant square, change in castling availability, etc.)
-}
-
-impl Move {
-    fn new(from: Square, to: Square) -> Move {
-        Move { from, to }
-    }
 }
 
 /// Generates a `Vec<Move>` containing all valid moves, given a board state
@@ -57,7 +52,7 @@ pub fn generate_moves(board: &Board) -> Vec<Move> {
             // and similarly pop each bit from the bitboard, pushing a move to the list as we go
             while moves_board != 0 {
                 let to = pop_msb_1(&mut moves_board);
-                moves.push(Move::new(from, to));
+                moves.push(Move { from, to, piece });
             }
         }
     }
