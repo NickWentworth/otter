@@ -7,7 +7,6 @@ mod utility;
 fn main() {
     let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1".to_string();
     let mut b = board::Board::new(fen);
-
-    let moves = move_generator::generate_moves(&b);
-    b.make_move(&moves[0]);
+    let mg = move_generator::MoveGenerator::new();
+    let moves = mg.generate_moves(&b);
 }
