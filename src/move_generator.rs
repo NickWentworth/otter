@@ -27,6 +27,7 @@ impl Direction {
 
 pub struct MoveGenerator {
     diagonal_attacks: [[Bitboard; 64]; 4],
+    straight_attacks: [[Bitboard; 64]; 4],
 }
 
 /// Right-shifts the bitboard by the specified `amount` (if positive)
@@ -42,19 +43,21 @@ fn negative_shift_right(board: Bitboard, amount: isize) -> Bitboard {
 
 impl MoveGenerator {
     pub fn new() -> MoveGenerator {
-        // generate diagonal attack directions
-        let diagonal_attacks = Direction::DIAGONALS.map(|direction_offset| {
+        /// Only needed temporarily, generates the attack vector for all squares in a particular direction
+        fn calculate_attack_in_direction(direction_offset: isize) -> [Bitboard; 64] {
             let mut boards: [Bitboard; 64] = [0; 64];
 
             // go through each square in the board to fill it in
-            for square in 0..boards.len() {
+            for square in 0..64 {
                 // generate the initial square the piece is on
                 // and the square of the next attack, with the bitwise operation being handled for negative directions
                 let mut attack: Bitboard = MSB_BOARD >> square;
                 let mut next_attack: Bitboard = negative_shift_right(attack, direction_offset);
 
                 // to tell if we are going off to the other side, the attack and next attack will be on the A and H file
-                while ((attack | next_attack) & FileBoundMask::A & FileBoundMask::H) != 0 {
+                while ((attack & FileBoundMask::A) | (next_attack & FileBoundMask::H) != 0)
+                    && ((attack & FileBoundMask::H) | (next_attack & FileBoundMask::A) != 0)
+                {
                     // if the next attack is valid (and not wrapping to the other side of the board), we can now advance to the next attack (for the while loop)
                     attack = next_attack;
                     next_attack = negative_shift_right(attack, direction_offset);
@@ -65,9 +68,13 @@ impl MoveGenerator {
             }
 
             boards
-        });
+        }
 
-        MoveGenerator { diagonal_attacks }
+        MoveGenerator {
+            // generate diagonal attack directions
+            diagonal_attacks: Direction::DIAGONALS.map(calculate_attack_in_direction),
+            straight_attacks: Direction::STRAIGHTS.map(calculate_attack_in_direction),
+        }
     }
 
     /// Generates a `Vec<Move>` containing all valid moves, given a board state
@@ -108,7 +115,11 @@ impl MoveGenerator {
                         board.active_color_board() | board.inactive_color_board(),
                         board.active_color_board(),
                     ), // TODO - generate sliding piece moves
-                    Rook => 0,  // TODO - generate sliding piece moves
+                    Rook => self.generate_rook_moves(
+                        position,
+                        board.active_color_board() | board.inactive_color_board(),
+                        board.active_color_board(),
+                    ), // TODO - generate sliding piece moves
                     Queen => 0, // TODO - generate sliding piece moves
                     King => Self::generate_king_moves(position, board.active_color_board()),
                 };
@@ -302,6 +313,49 @@ impl MoveGenerator {
         }
 
         // since all pieces are used to find blockers, this bishop may be attacking a same-color piece
+        // this AND will take the possibly invalid final move in the slide and see if it shares a space with a piece of the same color
+        moves & !same_color_pieces
+    }
+
+    /// Nearly identical to bishop move generation, only change is that straight attacks are used instead of diagonals
+    fn generate_rook_moves(
+        &self,
+        rook_position: Bitboard,
+        all_pieces: Bitboard,
+        same_color_pieces: Bitboard,
+    ) -> Bitboard {
+        // get the square this rook is on to index attack direction arrays
+        let rook_square = rook_position.leading_zeros() as usize;
+
+        let mut moves: Bitboard = 0;
+
+        // go through the directions and attacks associated with each direction
+        for (direction, attacks) in Direction::STRAIGHTS.into_iter().zip(self.straight_attacks) {
+            // by AND-ing the rook's attack with all pieces, we get the pieces that block this attack
+            let blocker_board = attacks[rook_square] & all_pieces;
+
+            let clipped_attack = if blocker_board == 0 {
+                // if there are no pieces blocking, then the entire attack direction is kept
+                attacks[rook_square]
+            } else {
+                // else, find the first piece in the blocking direction
+                let first_blocker = if direction > 0 {
+                    // if the direction is southward, the first piece will be closest to the MSB
+                    blocker_board.leading_zeros() as usize
+                } else {
+                    // else the first piece will be closest to the LSB (and subtract 63 because we need it in terms of MSB, not LSB)
+                    63 - blocker_board.trailing_zeros() as usize
+                };
+
+                // finally, XOR the attack with the same direction attack from this first blocker to clip it off after the blocker
+                attacks[rook_square] ^ attacks[first_blocker]
+            };
+
+            // add this attack direction to the moves bitboard
+            moves |= clipped_attack;
+        }
+
+        // since all pieces are used to find blockers, this rook may be attacking a same-color piece
         // this AND will take the possibly invalid final move in the slide and see if it shares a space with a piece of the same color
         moves & !same_color_pieces
     }
