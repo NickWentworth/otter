@@ -150,4 +150,12 @@ impl Board {
     pub fn active_color(&self) -> Color {
         self.game_state.current_turn
     }
+
+    /// Generates a bitboard containing the en passant square or an empty board if there is no square
+    pub fn en_passant_square(&self) -> Bitboard {
+        match self.game_state.en_passant_square {
+            Some(square) => MSB_BOARD >> square,
+            None => 0,
+        }
+    }
 }

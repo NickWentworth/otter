@@ -101,6 +101,7 @@ impl MoveGenerator {
 
         // fetch these once instead of generating for every piece
         let active_color = board.active_color();
+        let en_passant = board.en_passant_square();
         let same_color = board.active_color_board();
         let oppositng_color = board.inactive_color_board();
         let both_colors = same_color | oppositng_color;
@@ -122,11 +123,13 @@ impl MoveGenerator {
                             piece_position,
                             same_color,
                             oppositng_color,
+                            en_passant,
                         ),
                         Color::Black => Self::generate_black_pawn_moves(
                             piece_position,
                             same_color,
                             oppositng_color,
+                            en_passant,
                         ),
                     },
                     Knight => Self::generate_knight_moves(piece_position, same_color),
@@ -247,6 +250,7 @@ impl MoveGenerator {
         pawn_position: Bitboard,
         white_pieces: Bitboard,
         black_pieces: Bitboard,
+        en_passant_square: Bitboard,
     ) -> Bitboard {
         // get squares where no pieces sit on
         let no_pieces = !white_pieces & !black_pieces;
@@ -260,7 +264,7 @@ impl MoveGenerator {
         // for attacks to happen, an opposite colored piece has to be on the square
         let left_attack = (pawn_position & FileBoundMask::A) << 9;
         let right_attack = (pawn_position & FileBoundMask::H) << 7;
-        let valid_attacks = (left_attack | right_attack) & black_pieces;
+        let valid_attacks = (left_attack | right_attack) & (black_pieces | en_passant_square);
 
         // moves are combination of forward moves, double moves, and attack moves
         forward_move | double_move | valid_attacks
@@ -277,6 +281,7 @@ impl MoveGenerator {
         pawn_position: Bitboard,
         black_pieces: Bitboard,
         white_pieces: Bitboard,
+        en_passant_square: Bitboard,
     ) -> Bitboard {
         // get squares where no pieces sit on
         let no_pieces = !white_pieces & !black_pieces;
@@ -290,7 +295,7 @@ impl MoveGenerator {
         // for attacks to happen, an opposite colored piece has to be on the square
         let left_attack = (pawn_position & FileBoundMask::A) >> 7;
         let right_attack = (pawn_position & FileBoundMask::H) >> 9;
-        let valid_attacks = (left_attack | right_attack) & white_pieces;
+        let valid_attacks = (left_attack | right_attack) & (white_pieces | en_passant_square);
 
         // moves are combination of forward moves, double moves, and attack moves
         forward_move | double_move | valid_attacks
