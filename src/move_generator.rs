@@ -1,6 +1,8 @@
 use crate::board::Board;
 use crate::types::{Bitboard, Color, Piece, Square};
-use crate::utility::{pop_msb_1, FileBoundMask, RankPositionMask, MSB_BOARD};
+use crate::utility::{
+    conditional_shift_right, pop_msb_1, FileBoundMask, RankPositionMask, MSB_BOARD,
+};
 
 /// Describes a move on the board and information related to that move
 pub struct Move {
@@ -23,16 +25,6 @@ impl Direction {
 
     const DIAGONALS: [isize; 4] = [Self::NE, Self::NW, Self::SE, Self::SW];
     const STRAIGHTS: [isize; 4] = [Self::N, Self::E, Self::S, Self::W];
-    const ALL: [isize; 8] = [
-        Self::N,
-        Self::E,
-        Self::S,
-        Self::W,
-        Self::NE,
-        Self::NW,
-        Self::SE,
-        Self::SW,
-    ];
 }
 
 type DirectionAttackPair = (isize, [Bitboard; 64]);
@@ -40,18 +32,6 @@ type DirectionAttackPair = (isize, [Bitboard; 64]);
 pub struct MoveGenerator {
     diagonal_attacks: [DirectionAttackPair; 4],
     straight_attacks: [DirectionAttackPair; 4],
-    all_attacks: [DirectionAttackPair; 8],
-}
-
-/// Right-shifts the bitboard by the specified `amount` (if positive)
-///
-/// If `amount` is negative, a left-shift is applied with the same magnitude
-fn conditional_shift_right(board: Bitboard, amount: isize) -> Bitboard {
-    if amount >= 0 {
-        board >> amount
-    } else {
-        board << -amount
-    }
 }
 
 impl MoveGenerator {
@@ -87,7 +67,6 @@ impl MoveGenerator {
             // generate diagonal attack directions
             diagonal_attacks: Direction::DIAGONALS.map(calculate_attack_in_direction),
             straight_attacks: Direction::STRAIGHTS.map(calculate_attack_in_direction),
-            all_attacks: Direction::ALL.map(calculate_attack_in_direction),
         }
     }
 
@@ -145,12 +124,19 @@ impl MoveGenerator {
                         same_color,
                         &self.straight_attacks,
                     ),
-                    Queen => Self::generate_sliding_moves(
-                        piece_position,
-                        both_colors,
-                        same_color,
-                        &self.all_attacks,
-                    ),
+                    Queen => {
+                        Self::generate_sliding_moves(
+                            piece_position,
+                            both_colors,
+                            same_color,
+                            &self.diagonal_attacks,
+                        ) | Self::generate_sliding_moves(
+                            piece_position,
+                            both_colors,
+                            same_color,
+                            &self.straight_attacks,
+                        )
+                    }
                     King => Self::generate_king_moves(piece_position, same_color),
                 };
 
@@ -245,7 +231,6 @@ impl MoveGenerator {
     // . (P) .
     // move 3 needs to be bounds checked against A file
     // move 4 needs to be bounds checked against H file
-    // TODO - en passant moves
     fn generate_white_pawn_moves(
         pawn_position: Bitboard,
         white_pieces: Bitboard,
@@ -276,7 +261,6 @@ impl MoveGenerator {
     // .  2 .
     // move 3 needs to be bounds checked against A file
     // move 4 needs to be bounds checked against H file
-    // TODO - en passant moves
     fn generate_black_pawn_moves(
         pawn_position: Bitboard,
         black_pieces: Bitboard,

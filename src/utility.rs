@@ -1,4 +1,4 @@
-use crate::types::{Bitboard, Color, Square};
+use crate::types::{Bitboard, Square};
 
 // general utility methods used throughout the program
 
@@ -10,6 +10,17 @@ pub fn display_bitboard(bitboard: Bitboard) {
             print!("{} ", (rank >> i) & 1);
         }
         println!();
+    }
+}
+
+/// Right-shifts the bitboard by the specified `amount` (if positive)
+///
+/// If `amount` is negative, a left-shift is applied with the same magnitude
+pub fn conditional_shift_right(board: Bitboard, amount: isize) -> Bitboard {
+    if amount >= 0 {
+        board >> amount
+    } else {
+        board << -amount
     }
 }
 
