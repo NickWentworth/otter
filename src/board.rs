@@ -34,6 +34,7 @@ impl Board {
             fen
         } else {
             // if not, just use the default fen string for now
+            println!("Invalid FEN! Reverting to starting board state.");
             DEFAULT_FEN.to_string()
         }
         .split(" ")

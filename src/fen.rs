@@ -11,12 +11,21 @@ const FEN_REGEX: &str = r"^((P|N|B|R|Q|K|p|n|b|r|q|k|1){8}/){7}(P|N|B|R|Q|K|p|n|
 pub fn check_valid_fen(fen: &String) -> bool {
     let regex = regex::Regex::new(FEN_REGEX);
 
-    // to make regex matching more exact, replace all occurrences of a digit with that number of 1's
+    // to make regex matching more exact, replace all occurrences of a digit with that number of 1's within piece data segment
     // this helps to ensure 8 pieces per rank and 8 ranks in total
-    let mut expanded_fen = fen.clone().to_string();
+    let first_space = fen.find(' ').unwrap_or(fen.len());
+    let mut piece_data = fen.split_at(first_space).0.to_string();
+
     for i in 2..=8 {
-        expanded_fen = expanded_fen.replace(&i.to_string(), &"1".repeat(i));
+        piece_data = piece_data.replace(&i.to_string(), &"1".repeat(i));
     }
+
+    // now rebuild the expanded fen with the updated piece data
+    // operation cannot be done on entire fen because numbers can occur elsewhere and shouldn't be expanded
+    let mut expanded_fen = fen.clone();
+    expanded_fen.replace_range(0..first_space, &piece_data);
+
+    // print!("{}", expanded_fen);
 
     match regex {
         Err(_) => false,
