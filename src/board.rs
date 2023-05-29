@@ -1,8 +1,10 @@
+use std::fmt::Display;
+
 use crate::{
     fen::{check_valid_fen, DEFAULT_FEN},
     move_generator::Move,
     types::{Bitboard, Color, Piece, Square, NUM_COLORS, NUM_PIECES},
-    utility::{square_from_algebraic, MSB_BOARD},
+    utility::{pop_msb_1, square_from_algebraic, MSB_BOARD},
 };
 
 /// Variables related to conditions of the game
@@ -157,5 +159,96 @@ impl Board {
             Some(square) => MSB_BOARD >> square,
             None => 0,
         }
+    }
+}
+
+impl Display for Board {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use Color::*;
+        use Piece::*;
+
+        let mut chars = ['.'; 64];
+
+        // generate array of characters representing pieces
+        for piece in [Pawn, Knight, Bishop, Rook, Queen, King] {
+            let mut piece_board = self.pieces[piece];
+
+            while piece_board != 0 {
+                let square = pop_msb_1(&mut piece_board) as usize;
+                let position = MSB_BOARD >> square;
+
+                // match the character at this square to a piece on the board
+                chars[square] = match piece {
+                    Pawn => 'P',
+                    Knight => 'N',
+                    Bishop => 'B',
+                    Rook => 'R',
+                    Queen => 'Q',
+                    King => 'K',
+                };
+
+                // if piece is black, lowercase it
+                if position & self.colors[White] == 0 {
+                    chars[square] = chars[square].to_ascii_lowercase();
+                }
+            }
+        }
+
+        // build the board string from the character array
+        let mut output = String::new();
+        let mut index = 0;
+
+        for symbol in chars {
+            if index % 8 == 0 {
+                output.push('\n');
+                output.push_str(&format!("{}   ", 8 - index / 8));
+            }
+
+            output.push(symbol);
+            output.push(' ');
+            index += 1;
+        }
+
+        output.push_str("\n\n    a b c d e f g h\n");
+
+        // add some related game state info
+        let move_info = format!(
+            "\nTurn: {} | Fullmove: {} | Halfmove: {}\n",
+            match self.game_state.current_turn {
+                White => "White",
+                Black => "Black",
+            },
+            self.game_state.fullmove,
+            self.game_state.halfmove,
+        );
+        output.push_str(&move_info);
+
+        let castle_info = format!(
+            "Castling availability: {} {} {} {}\n",
+            if self.game_state.white_king_castle {
+                "K"
+            } else {
+                "-"
+            },
+            if self.game_state.white_queen_castle {
+                "Q"
+            } else {
+                "-"
+            },
+            if self.game_state.black_king_castle {
+                "k"
+            } else {
+                "-"
+            },
+            if self.game_state.black_queen_castle {
+                "q"
+            } else {
+                "-"
+            },
+        );
+        output.push_str(&castle_info);
+
+        // and write to the formatter
+        write!(f, "{}", output)
     }
 }
