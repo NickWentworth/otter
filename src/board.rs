@@ -1,10 +1,11 @@
 use std::fmt::Display;
 
 use crate::{
+    bitboard::{Bitboard, Square},
     fen::{check_valid_fen, DEFAULT_FEN},
     move_generator::Move,
-    types::{Bitboard, Color, Piece, Square, NUM_COLORS, NUM_PIECES},
-    utility::{pop_msb_1, square_from_algebraic, MSB_BOARD},
+    types::{Color, Piece, NUM_COLORS, NUM_PIECES},
+    utility::square_from_algebraic,
 };
 
 /// Variables related to conditions of the game
@@ -44,19 +45,19 @@ impl Board {
         .collect();
 
         // build the bitboards for the struct
-        let mut pieces: [Bitboard; NUM_PIECES] = [0; NUM_PIECES];
-        let mut colors: [Bitboard; NUM_COLORS] = [0; NUM_COLORS];
+        let mut pieces: [Bitboard; NUM_PIECES] = [Bitboard::EMPTY; NUM_PIECES];
+        let mut colors: [Bitboard; NUM_COLORS] = [Bitboard::EMPTY; NUM_COLORS];
 
         // index bitboard to be AND-ed with piece/color bitboards, bitwise looks like 1000...0000
         // instead of being incremented, this is right-shifted to move the 1 over
-        let mut index: Bitboard = MSB_BOARD;
+        let mut index: Bitboard = Bitboard::MSB;
 
         for symbol in fen_parts[0].chars() {
             match symbol {
                 // number in FEN means # of empty spaces
                 n if n.is_ascii_digit() => {
                     // increment the index by number of empty spaces
-                    index >>= n.to_digit(10).unwrap() as usize;
+                    index >>= n.to_digit(10).unwrap() as Square;
                 }
 
                 // slash indicates the next column, but we don't have to do anything here
@@ -83,7 +84,7 @@ impl Board {
                     }
 
                     // finally increment index
-                    index >>= 1;
+                    index >>= 1 as Square;
                 }
             }
         }
@@ -118,7 +119,7 @@ impl Board {
         // bitwise XOR with a board with 1's at both from and to squares for colors
         // the from location will be set to 0 and the to location will be set to 1
         // other locations will be left unchanged (0^0 = 0, 1^0 = 1)
-        let move_board = (MSB_BOARD >> m.from) | (MSB_BOARD >> m.to);
+        let move_board = Bitboard::shifted_board(m.from) | Bitboard::shifted_board(m.to);
 
         // apply the changes
         self.colors[moving_color] ^= move_board;
@@ -156,8 +157,8 @@ impl Board {
     /// Generates a bitboard containing the en passant square or an empty board if there is no square
     pub fn en_passant_square(&self) -> Bitboard {
         match self.game_state.en_passant_square {
-            Some(square) => MSB_BOARD >> square,
-            None => 0,
+            Some(square) => Bitboard::shifted_board(square),
+            None => Bitboard::EMPTY,
         }
     }
 }
@@ -173,12 +174,12 @@ impl Display for Board {
         for piece in [Pawn, Knight, Bishop, Rook, Queen, King] {
             let mut piece_board = self.pieces[piece];
 
-            while piece_board != 0 {
-                let square = pop_msb_1(&mut piece_board) as usize;
-                let position = MSB_BOARD >> square;
+            while !piece_board.is_empty() {
+                let square = piece_board.pop_first_square();
+                let position = Bitboard::shifted_board(square);
 
                 // match the character at this square to a piece on the board
-                chars[square] = match piece {
+                chars[square as usize] = match piece {
                     Pawn => 'P',
                     Knight => 'N',
                     Bishop => 'B',
@@ -188,8 +189,8 @@ impl Display for Board {
                 };
 
                 // if piece is black, lowercase it
-                if position & self.colors[White] == 0 {
-                    chars[square] = chars[square].to_ascii_lowercase();
+                if (position & self.colors[White]).is_empty() {
+                    chars[square as usize] = chars[square as usize].to_ascii_lowercase();
                 }
             }
         }

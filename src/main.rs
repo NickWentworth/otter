@@ -1,3 +1,4 @@
+mod bitboard;
 mod board;
 mod fen;
 mod move_generator;

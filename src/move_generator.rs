@@ -1,8 +1,7 @@
+use crate::bitboard::{Bitboard, Square};
 use crate::board::Board;
-use crate::types::{Bitboard, Color, Piece, Square};
-use crate::utility::{
-    conditional_shift_right, pop_msb_1, FileBoundMask, RankPositionMask, MSB_BOARD,
-};
+use crate::types::{Color, Piece};
+use crate::utility::{FileBoundMask, RankPositionMask};
 
 /// Describes a move on the board and information related to that move
 pub struct Move {
@@ -38,25 +37,25 @@ impl MoveGenerator {
     pub fn new() -> MoveGenerator {
         // Only needed temporarily, generates the attack ray for all squares in a particular direction
         let calculate_attack_in_direction = |direction_offset: isize| -> DirectionAttackPair {
-            let mut boards: [Bitboard; 64] = [0; 64];
+            let mut boards: [Bitboard; 64] = [Bitboard::EMPTY; 64];
 
             // go through each square in the board to fill it in
-            for square in 0..64 {
+            for square in 0..=63 {
                 // generate the initial square the piece is on
                 // and the square of the next attack, with the bitwise operation being handled for negative directions
-                let mut attack: Bitboard = MSB_BOARD >> square;
-                let mut next_attack: Bitboard = conditional_shift_right(attack, direction_offset);
+                let mut attack: Bitboard = Bitboard::shifted_board(square);
+                let mut next_attack: Bitboard = attack >> direction_offset;
 
                 // to tell if we are going off to the other side, the attack and next attack will be on the A and H file
-                while ((attack & FileBoundMask::A) | (next_attack & FileBoundMask::H) != 0)
-                    && ((attack & FileBoundMask::H) | (next_attack & FileBoundMask::A) != 0)
+                while !((attack & FileBoundMask::A) | (next_attack & FileBoundMask::H)).is_empty()
+                    && !((attack & FileBoundMask::H) | (next_attack & FileBoundMask::A)).is_empty()
                 {
                     // if the next attack is valid (and not wrapping to the other side of the board), we can now advance to the next attack (for the while loop)
                     attack = next_attack;
-                    next_attack = conditional_shift_right(attack, direction_offset);
+                    next_attack = attack >> direction_offset;
 
                     // add this attack to the boards at the current square
-                    boards[square] |= attack;
+                    boards[square as usize] |= attack;
                 }
             }
 
@@ -91,9 +90,9 @@ impl MoveGenerator {
             let mut pieces_board = board.active_piece_board(piece);
 
             // go through each position that this piece occurs in and pop it from the pieces bitboard
-            while pieces_board != 0 {
-                let from = pop_msb_1(&mut pieces_board);
-                let piece_position = MSB_BOARD >> from;
+            while !pieces_board.is_empty() {
+                let from = pieces_board.pop_first_square();
+                let piece_position = Bitboard::shifted_board(from);
 
                 // generate the correct move bitboard
                 let mut moves_board = match piece {
@@ -141,8 +140,8 @@ impl MoveGenerator {
                 };
 
                 // and similarly pop each bit from the bitboard, pushing a move to the list as we go
-                while moves_board != 0 {
-                    let to = pop_msb_1(&mut moves_board);
+                while !moves_board.is_empty() {
+                    let to = moves_board.pop_first_square();
                     moves.push(Move { from, to, piece });
                 }
             }
@@ -166,18 +165,20 @@ impl MoveGenerator {
 
         // first shift the king position in each direction, applying bounds checking when needed
         let moves: [Bitboard; 8] = [
-            king_position_not_a_file << 9,
-            king_position_not_a_file << 1,
-            king_position_not_a_file >> 7,
-            king_position << 8,
-            king_position >> 8,
-            king_position_not_h_file << 7,
-            king_position_not_h_file >> 1,
-            king_position_not_h_file >> 9,
+            king_position_not_a_file >> Direction::NW,
+            king_position_not_a_file >> Direction::W,
+            king_position_not_a_file >> Direction::SW,
+            king_position >> Direction::N,
+            king_position >> Direction::S,
+            king_position_not_h_file >> Direction::NE,
+            king_position_not_h_file >> Direction::E,
+            king_position_not_h_file >> Direction::SE,
         ];
 
         // bitwise OR all moves together, all 1's will appear in this bitboard
-        let all_moves = moves.into_iter().fold(0, |curr, next| (curr | next));
+        let all_moves = moves
+            .into_iter()
+            .fold(Bitboard::EMPTY, |curr, next| (curr | next));
 
         // bitwise AND all_moves with the negation of the same color pieces,
         // wherever there is a king move on top of the same color piece, 1 & !(1) => 1 & 0 => 0
@@ -206,18 +207,20 @@ impl MoveGenerator {
 
         // first shift the knight position in each L shape, applying bounds checking when needed
         let moves: [Bitboard; 8] = [
-            knight_position_not_ab_file << 10,
-            knight_position_not_ab_file >> 6,
-            knight_position_not_a_file << 17,
-            knight_position_not_a_file >> 15,
-            knight_position_not_h_file << 15,
-            knight_position_not_h_file >> 17,
-            knight_position_not_gh_file << 6,
-            knight_position_not_gh_file >> 10,
+            knight_position_not_ab_file >> Direction::NW + Direction::W,
+            knight_position_not_ab_file >> Direction::SW + Direction::W,
+            knight_position_not_a_file >> Direction::NW + Direction::N,
+            knight_position_not_a_file >> Direction::SW + Direction::S,
+            knight_position_not_h_file >> Direction::NE + Direction::N,
+            knight_position_not_h_file >> Direction::SE + Direction::S,
+            knight_position_not_gh_file >> Direction::NE + Direction::E,
+            knight_position_not_gh_file >> Direction::SE + Direction::E,
         ];
 
         // bitwise OR all moves together, all 1's will appear in this bitboard
-        let all_moves = moves.into_iter().fold(0, |curr, next| (curr | next));
+        let all_moves = moves
+            .into_iter()
+            .fold(Bitboard::EMPTY, |curr, next| (curr | next));
 
         // bitwise AND all_moves with the negation of the same color pieces
         let valid_moves = all_moves & !same_color_pieces;
@@ -241,14 +244,14 @@ impl MoveGenerator {
         let no_pieces = !white_pieces & !black_pieces;
 
         // pawn can move forward unless any color piece blocks its way
-        let forward_move = (pawn_position << 8) & no_pieces;
+        let forward_move = (pawn_position >> Direction::N) & no_pieces;
 
         // pawn can double move forward if forward move was successful, pawn was on second rank (now third), and same rules apply with blocking pieces
-        let double_move = ((forward_move & RankPositionMask::THIRD) << 8) & no_pieces;
+        let double_move = ((forward_move & RankPositionMask::THIRD) >> Direction::N) & no_pieces;
 
         // for attacks to happen, an opposite colored piece has to be on the square
-        let left_attack = (pawn_position & FileBoundMask::A) << 9;
-        let right_attack = (pawn_position & FileBoundMask::H) << 7;
+        let left_attack = (pawn_position & FileBoundMask::A) >> Direction::NW;
+        let right_attack = (pawn_position & FileBoundMask::H) >> Direction::NE;
         let valid_attacks = (left_attack | right_attack) & (black_pieces | en_passant_square);
 
         // moves are combination of forward moves, double moves, and attack moves
@@ -271,14 +274,14 @@ impl MoveGenerator {
         let no_pieces = !white_pieces & !black_pieces;
 
         // pawn can move forward unless any color piece blocks its way
-        let forward_move = (pawn_position >> 8) & no_pieces;
+        let forward_move = (pawn_position >> Direction::S) & no_pieces;
 
         // pawn can double move forward if forward move was successful, pawn was on second rank (now third), and same rules apply with blocking pieces
-        let double_move = ((forward_move & RankPositionMask::SIXTH) >> 8) & no_pieces;
+        let double_move = ((forward_move & RankPositionMask::SIXTH) >> Direction::S) & no_pieces;
 
         // for attacks to happen, an opposite colored piece has to be on the square
-        let left_attack = (pawn_position & FileBoundMask::A) >> 7;
-        let right_attack = (pawn_position & FileBoundMask::H) >> 9;
+        let left_attack = (pawn_position & FileBoundMask::A) >> Direction::SW;
+        let right_attack = (pawn_position & FileBoundMask::H) >> Direction::SE;
         let valid_attacks = (left_attack | right_attack) & (white_pieces | en_passant_square);
 
         // moves are combination of forward moves, double moves, and attack moves
@@ -298,27 +301,27 @@ impl MoveGenerator {
         attacks: &[DirectionAttackPair],
     ) -> Bitboard {
         // get the square this bishop is on to index attack direction arrays
-        let piece_square = piece_position.leading_zeros() as usize;
+        let piece_square = piece_position.get_first_square() as usize;
 
-        let mut moves: Bitboard = 0;
+        let mut moves: Bitboard = Bitboard::EMPTY;
 
         // go through the directions and attacks associated with each direction
         for (direction, attacks) in attacks {
             // by AND-ing the piece's attack with all pieces, we get the pieces that block this attack
             let blocker_board = attacks[piece_square] & all_pieces;
 
-            let clipped_attack = if blocker_board == 0 {
+            let clipped_attack = if blocker_board.is_empty() {
                 // if there are no pieces blocking, then the entire attack direction is kept
                 attacks[piece_square]
             } else {
                 // else, find the first piece in the blocking direction
                 let first_blocker = if *direction > 0 {
                     // if the direction is southward, the first piece will be closest to the MSB
-                    blocker_board.leading_zeros() as usize
+                    blocker_board.get_first_square()
                 } else {
                     // else the first piece will be closest to the LSB (and subtract 63 because we need it in terms of MSB, not LSB)
-                    63 - blocker_board.trailing_zeros() as usize
-                };
+                    blocker_board.get_last_square()
+                } as usize;
 
                 // finally, XOR the attack with the same direction attack from this first blocker to clip it off after the blocker
                 attacks[piece_square] ^ attacks[first_blocker]
