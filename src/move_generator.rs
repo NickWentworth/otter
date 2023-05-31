@@ -69,6 +69,7 @@ struct BoardInfo<'a> {
     pub same_pieces: Bitboard,
     pub oppposing_pieces: Bitboard,
     pub all_pieces: Bitboard,
+    pub no_pieces: Bitboard,
 
     pub en_passant: Bitboard,
     pub king_castle_rights: bool,
@@ -126,6 +127,7 @@ impl MoveGenerator {
 
         let mut moves: Vec<Move> = Vec::new();
 
+        // TODO - this could probably be returned from a board method
         // fetch these once instead of generating for every piece
         let info = BoardInfo {
             active_color: board.active_color(),
@@ -134,6 +136,7 @@ impl MoveGenerator {
             same_pieces: board.active_color_board(),
             oppposing_pieces: board.inactive_color_board(),
             all_pieces: board.active_color_board() | board.inactive_color_board(),
+            no_pieces: !(board.active_color_board() | board.inactive_color_board()),
 
             en_passant: board.en_passant_square(),
             king_castle_rights: board.active_castling_rights().0,
@@ -152,11 +155,18 @@ impl MoveGenerator {
                 let from = pieces_board.pop_first_square();
                 let piece_position = Bitboard::shifted_board(from);
 
+                // TODO - test if adding to a pre-allocated move buffer is better than this method of extending vectors
                 // and generate the moves for that piece
                 moves.extend(match piece {
+                    // regular moving pieces
                     King => Self::generate_king_moves(piece_position, &info),
                     Knight => Self::generate_knight_moves(piece_position, &info),
-                    _ => vec![],
+                    Pawn => Self::generate_pawn_moves(piece_position, &info),
+
+                    // sliding pieces
+                    Bishop | Rook | Queen => {
+                        self.generate_sliding_moves(piece_position, piece, &info)
+                    }
                 })
             }
         }
@@ -191,6 +201,7 @@ impl MoveGenerator {
         // cannot move into squares occupied by the same color
         regular_moves &= !info.same_pieces;
 
+        // TODO - this is a common pattern in the move generation for different pieces, can likely be turned into a function
         while !regular_moves.is_empty() {
             let to = regular_moves.pop_first_square();
             let mut m = Move::new(from, to, Piece::King);
@@ -276,94 +287,133 @@ impl MoveGenerator {
         moves
     }
 
-    // board move representation:
-    // .  2  .
-    // 3  1  4
-    // . (P) .
-    // move 3 needs to be bounds checked against A file
-    // move 4 needs to be bounds checked against H file
-    fn generate_white_pawn_moves(
-        pawn_position: Bitboard,
-        white_pieces: Bitboard,
-        black_pieces: Bitboard,
-        en_passant_square: Bitboard,
-    ) -> Bitboard {
-        // get squares where no pieces sit on
-        let no_pieces = !white_pieces & !black_pieces;
+    fn generate_pawn_moves(pawn_position: Bitboard, info: &BoardInfo) -> Vec<Move> {
+        let mut moves: Vec<Move> = Vec::new();
+        let from = pawn_position.get_first_square();
 
-        // pawn can move forward unless any color piece blocks its way
-        let forward_move = (pawn_position >> Direction::N) & no_pieces;
+        // board move representation:
+        // white:       black:
+        // .  2  .      . (P) .
+        // 3  1  4      3  1  4
+        // . (P) .      .  2  .
 
-        // pawn can double move forward if forward move was successful, pawn was on second rank (now third), and same rules apply with blocking pieces
-        let double_move = ((forward_move & RankPositionMask::THIRD) >> Direction::N) & no_pieces;
+        // based on the color, pawn moving direction and rank for double moves are different
+        let (direction, double_move_mask) = match info.active_color {
+            Color::White => (Direction::N, RankPositionMask::THIRD),
+            Color::Black => (Direction::S, RankPositionMask::SIXTH),
+        };
 
-        // for attacks to happen, an opposite colored piece has to be on the square
-        let left_attack = (pawn_position & FileBoundMask::A) >> Direction::NW;
-        let right_attack = (pawn_position & FileBoundMask::H) >> Direction::NE;
-        let valid_attacks = (left_attack | right_attack) & (black_pieces | en_passant_square);
+        // check for a valid forward move
+        let forward_move = (pawn_position >> direction) & info.no_pieces;
+        if !forward_move.is_empty() {
+            // check to see if the move is a promotion move
+            if (forward_move & RankPositionMask::PROMOTION).is_empty() {
+                // if it isn't, just add a regular forward move in
+                moves.push(Move::new(
+                    from,
+                    forward_move.get_first_square(),
+                    Piece::Pawn,
+                ))
+            } else {
+                // else, go through all promotion pieces and add them in
+                for promotion_piece in [Piece::Knight, Piece::Bishop, Piece::Rook, Piece::Queen] {
+                    moves.push(Move::new_with_flag(
+                        from,
+                        forward_move.get_first_square(),
+                        Piece::Pawn,
+                        MoveFlag::Promotion(promotion_piece),
+                    ))
+                }
+            }
+        }
 
-        // moves are combination of forward moves, double moves, and attack moves
-        forward_move | double_move | valid_attacks
+        // check for a valid double move (based off of forward move)
+        let double_move = ((forward_move & double_move_mask) >> direction) & info.no_pieces;
+        if !double_move.is_empty() {
+            moves.push(Move::new_with_flag(
+                from,
+                double_move.get_first_square(),
+                Piece::Pawn,
+                MoveFlag::PawnDoubleMove(forward_move.get_first_square()),
+            ))
+        }
+
+        // check for attacks in diagonal directions
+        let left_attack = (pawn_position & FileBoundMask::A) >> (direction - 1);
+        let right_attack = (pawn_position & FileBoundMask::H) >> (direction + 1);
+        let mut attacks = (left_attack | right_attack) & (info.oppposing_pieces | info.en_passant);
+
+        while !attacks.is_empty() {
+            let to = attacks.pop_first_square();
+
+            // cannot be an empty square, safe to unwrap
+            let captured_piece = info.board.piece_at_square(to, info.inactive_color).unwrap();
+
+            // check if this is a promotion rank here as well
+            if (forward_move & RankPositionMask::PROMOTION).is_empty() {
+                // if it isn't, just add a regular attack move in
+                moves.push(Move::new_with_flag(
+                    from,
+                    to,
+                    Piece::Pawn,
+                    MoveFlag::Capture(captured_piece),
+                ))
+            } else {
+                // else, go through all promotion pieces and add them in as promotion attacks
+                for promotion_piece in [Piece::Knight, Piece::Bishop, Piece::Rook, Piece::Queen] {
+                    moves.push(Move::new_with_flag(
+                        from,
+                        to,
+                        Piece::Pawn,
+                        MoveFlag::CapturePromotion(captured_piece, promotion_piece),
+                    ))
+                }
+            }
+        }
+
+        moves
     }
 
-    // board move representation:
-    // . (P) .
-    // 3  1  4
-    // .  2 .
-    // move 3 needs to be bounds checked against A file
-    // move 4 needs to be bounds checked against H file
-    fn generate_black_pawn_moves(
-        pawn_position: Bitboard,
-        black_pieces: Bitboard,
-        white_pieces: Bitboard,
-        en_passant_square: Bitboard,
-    ) -> Bitboard {
-        // get squares where no pieces sit on
-        let no_pieces = !white_pieces & !black_pieces;
-
-        // pawn can move forward unless any color piece blocks its way
-        let forward_move = (pawn_position >> Direction::S) & no_pieces;
-
-        // pawn can double move forward if forward move was successful, pawn was on second rank (now third), and same rules apply with blocking pieces
-        let double_move = ((forward_move & RankPositionMask::SIXTH) >> Direction::S) & no_pieces;
-
-        // for attacks to happen, an opposite colored piece has to be on the square
-        let left_attack = (pawn_position & FileBoundMask::A) >> Direction::SW;
-        let right_attack = (pawn_position & FileBoundMask::H) >> Direction::SE;
-        let valid_attacks = (left_attack | right_attack) & (white_pieces | en_passant_square);
-
-        // moves are combination of forward moves, double moves, and attack moves
-        forward_move | double_move | valid_attacks
-    }
-
-    /// Sliding piece move generation generally works as follows:
-    ///
-    /// 1. Index the pre-generated 2D array by the direction of attack and the square the attacking piece is on
-    /// 2. Bitwise AND the attack ray and all pieces to find the pieces blocking the attacking piece
-    /// 3. Find the index of the nearest blocker to the attacking piece and clip the attack off at that piece
-    /// 4. Make sure the first blocker is not a piece of the same color, if it is remove that square
+    // Sliding piece move generation generally works as follows:
+    //
+    // 1. Index the pre-generated 2D array by the direction of attack and the square the attacking piece is on
+    // 2. Bitwise AND the attack ray and all pieces to find the pieces blocking the attacking piece
+    // 3. Find the index of the nearest blocker to the attacking piece and clip the attack off at that piece
+    // 4. Make sure the first blocker is not a piece of the same color, if it is remove that square
+    //
+    // From this, we have a bitboard that contains moves that are either quiet or captures
     fn generate_sliding_moves(
+        &self,
         piece_position: Bitboard,
-        all_pieces: Bitboard,
-        same_color_pieces: Bitboard,
-        attacks: &[DirectionAttackPair],
-    ) -> Bitboard {
+        piece: Piece,
+        info: &BoardInfo,
+    ) -> Vec<Move> {
         // get the square this bishop is on to index attack direction arrays
-        let piece_square = piece_position.get_first_square() as usize;
+        let mut moves: Vec<Move> = Vec::new();
+        let from = piece_position.get_first_square();
+        let piece_square = from as usize;
 
-        let mut moves: Bitboard = Bitboard::EMPTY;
+        let mut regular_moves = Bitboard::EMPTY;
+
+        // TODO - just initially generate these as vectors, they aren't being mutated so accessing isn't any faster
+        let attacks = match piece {
+            Piece::Bishop => [self.diagonal_attacks].concat(),
+            Piece::Rook => [self.straight_attacks].concat(),
+            Piece::Queen => [self.diagonal_attacks, self.straight_attacks].concat(),
+            _ => panic!("Pawn, Knight, or King are not sliding pieces!"),
+        };
 
         // go through the directions and attacks associated with each direction
         for (direction, attacks) in attacks {
             // by AND-ing the piece's attack with all pieces, we get the pieces that block this attack
-            let blocker_board = attacks[piece_square] & all_pieces;
+            let blocker_board = attacks[piece_square] & info.all_pieces;
 
             let clipped_attack = if blocker_board.is_empty() {
                 // if there are no pieces blocking, then the entire attack direction is kept
                 attacks[piece_square]
             } else {
                 // else, find the first piece in the blocking direction
-                let first_blocker = if *direction > 0 {
+                let first_blocker = if direction > 0 {
                     // if the direction is southward, the first piece will be closest to the MSB
                     blocker_board.get_first_square()
                 } else {
@@ -376,11 +426,26 @@ impl MoveGenerator {
             };
 
             // add this attack direction to the moves bitboard
-            moves |= clipped_attack;
+            regular_moves |= clipped_attack;
         }
 
         // since all pieces are used to find blockers, this bishop may be attacking a same-color piece
         // this AND will take the possibly invalid final move in the slide and see if it shares a space with a piece of the same color
-        moves & !same_color_pieces
+        regular_moves &= !info.same_pieces;
+
+        // now go through and add moves to vector
+        while !regular_moves.is_empty() {
+            let to = regular_moves.pop_first_square();
+            let mut m = Move::new(from, to, piece);
+
+            // if an opposing piece is on this square, add a capture flag to it
+            if let Some(piece) = info.board.piece_at_square(to, info.inactive_color) {
+                m.set_flag(MoveFlag::Capture(piece));
+            }
+
+            moves.push(m);
+        }
+
+        moves
     }
 }

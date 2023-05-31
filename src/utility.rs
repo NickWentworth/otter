@@ -51,11 +51,13 @@ impl FileBoundMask {
 /// Can be bitwise AND-ed with piece position to mask out pieces NOT on a certain rank
 pub struct RankPositionMask;
 impl RankPositionMask {
-    // ...
+    // single rank checks
     pub const THIRD: Bitboard = Bitboard(0x00_00_00_00_00_FF_00_00);
-    // ...
     pub const SIXTH: Bitboard = Bitboard(0x00_00_FF_00_00_00_00_00);
-    // ...
+
+    // check for pawns on promotion squares
+    // don't need to separate the promotion squares for each side, only white pawns can move to rank 8 and black to rank 1
+    pub const PROMOTION: Bitboard = Bitboard(0xFF_00_00_00_00_00_00_FF);
 }
 
 /// Can be bitwise AND-ed to test for valid castling squares
