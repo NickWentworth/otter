@@ -1,14 +1,48 @@
 use crate::bitboard::{Bitboard, Square};
 use crate::board::Board;
 use crate::types::{Color, Piece};
-use crate::utility::{FileBoundMask, RankPositionMask};
+use crate::utility::{CastleMask, FileBoundMask, RankPositionMask};
+
+pub enum MoveFlag {
+    Quiet,                          // nothing special, regular move that doesn't have any flags
+    Capture(Piece),                 // opponent piece that was captured
+    Promotion(Piece),               // pawn was promoted into a piece
+    CapturePromotion(Piece, Piece), // opponent piece that was captured as well as the piece promoted into
+    PawnDoubleMove(Square),         // pawn double moved and stores the en passant square
+    KingCastle,                     // kingside castle
+    QueenCastle,                    // queenside castle
+}
 
 /// Describes a move on the board and information related to that move
 pub struct Move {
     pub from: Square,
     pub to: Square,
     pub piece: Piece,
-    // TODO - add flags to help modify game state (new en passant square, change in castling availability, etc.)
+    pub flag: MoveFlag,
+}
+
+impl Move {
+    pub fn new(from: Square, to: Square, piece: Piece) -> Move {
+        Move {
+            from,
+            to,
+            piece,
+            flag: MoveFlag::Quiet,
+        }
+    }
+
+    pub fn new_with_flag(from: Square, to: Square, piece: Piece, flag: MoveFlag) -> Move {
+        Move {
+            from,
+            to,
+            piece,
+            flag,
+        }
+    }
+
+    pub fn set_flag(&mut self, flag: MoveFlag) {
+        self.flag = flag;
+    }
 }
 
 struct Direction;
@@ -27,6 +61,21 @@ impl Direction {
 }
 
 type DirectionAttackPair = (isize, [Bitboard; 64]);
+
+struct BoardInfo<'a> {
+    pub active_color: Color,
+    pub inactive_color: Color,
+
+    pub same_pieces: Bitboard,
+    pub oppposing_pieces: Bitboard,
+    pub all_pieces: Bitboard,
+
+    pub en_passant: Bitboard,
+    pub king_castle_rights: bool,
+    pub queen_castle_rights: bool,
+
+    pub board: &'a Board,
+}
 
 pub struct MoveGenerator {
     diagonal_attacks: [DirectionAttackPair; 4],
@@ -78,11 +127,20 @@ impl MoveGenerator {
         let mut moves: Vec<Move> = Vec::new();
 
         // fetch these once instead of generating for every piece
-        let active_color = board.active_color();
-        let en_passant = board.en_passant_square();
-        let same_color = board.active_color_board();
-        let oppositng_color = board.inactive_color_board();
-        let both_colors = same_color | oppositng_color;
+        let info = BoardInfo {
+            active_color: board.active_color(),
+            inactive_color: board.active_color().opposite(),
+
+            same_pieces: board.active_color_board(),
+            oppposing_pieces: board.inactive_color_board(),
+            all_pieces: board.active_color_board() | board.inactive_color_board(),
+
+            en_passant: board.en_passant_square(),
+            king_castle_rights: board.active_castling_rights().0,
+            queen_castle_rights: board.active_castling_rights().1,
+
+            board,
+        };
 
         // iterate through each type of piece
         for piece in [Pawn, Knight, Bishop, Rook, Queen, King] {
@@ -94,138 +152,128 @@ impl MoveGenerator {
                 let from = pieces_board.pop_first_square();
                 let piece_position = Bitboard::shifted_board(from);
 
-                // generate the correct move bitboard
-                let mut moves_board = match piece {
-                    Pawn => match active_color {
-                        Color::White => Self::generate_white_pawn_moves(
-                            piece_position,
-                            same_color,
-                            oppositng_color,
-                            en_passant,
-                        ),
-                        Color::Black => Self::generate_black_pawn_moves(
-                            piece_position,
-                            same_color,
-                            oppositng_color,
-                            en_passant,
-                        ),
-                    },
-                    Knight => Self::generate_knight_moves(piece_position, same_color),
-                    Bishop => Self::generate_sliding_moves(
-                        piece_position,
-                        both_colors,
-                        same_color,
-                        &self.diagonal_attacks,
-                    ),
-                    Rook => Self::generate_sliding_moves(
-                        piece_position,
-                        both_colors,
-                        same_color,
-                        &self.straight_attacks,
-                    ),
-                    Queen => {
-                        Self::generate_sliding_moves(
-                            piece_position,
-                            both_colors,
-                            same_color,
-                            &self.diagonal_attacks,
-                        ) | Self::generate_sliding_moves(
-                            piece_position,
-                            both_colors,
-                            same_color,
-                            &self.straight_attacks,
-                        )
-                    }
-                    King => Self::generate_king_moves(piece_position, same_color),
-                };
-
-                // and similarly pop each bit from the bitboard, pushing a move to the list as we go
-                while !moves_board.is_empty() {
-                    let to = moves_board.pop_first_square();
-                    moves.push(Move { from, to, piece });
-                }
+                // and generate the moves for that piece
+                moves.extend(match piece {
+                    King => Self::generate_king_moves(piece_position, &info),
+                    Knight => Self::generate_knight_moves(piece_position, &info),
+                    _ => vec![],
+                })
             }
         }
 
         moves
     }
 
-    // board move representation:
-    // 1  4  6
-    // 2 (K) 7
-    // 3  5  8
-    // moves 1,2,3 need to be bounds checked against A file
-    // moves 6,7,8 need to be bounds checked against H file
-    // moves don't need to be bounds checked against ranks, overflow will handle them
-    fn generate_king_moves(king_position: Bitboard, same_color_pieces: Bitboard) -> Bitboard {
-        // bounds check against files by bitwise AND king position with a file mask, where all bits in that file are 0
-        // if the king is on that file, the king bit will disappear
-        let king_position_not_a_file = king_position & FileBoundMask::A;
-        let king_position_not_h_file = king_position & FileBoundMask::H;
+    // TODO - prevent king from moving/castling into attacks
+    fn generate_king_moves(king_position: Bitboard, info: &BoardInfo) -> Vec<Move> {
+        let mut moves: Vec<Move> = Vec::new();
+        let from = king_position.get_first_square();
 
-        // first shift the king position in each direction, applying bounds checking when needed
-        let moves: [Bitboard; 8] = [
-            king_position_not_a_file >> Direction::NW,
-            king_position_not_a_file >> Direction::W,
-            king_position_not_a_file >> Direction::SW,
-            king_position >> Direction::N,
-            king_position >> Direction::S,
-            king_position_not_h_file >> Direction::NE,
-            king_position_not_h_file >> Direction::E,
-            king_position_not_h_file >> Direction::SE,
-        ];
+        let king_position_a_file_masked = king_position & FileBoundMask::A;
+        let king_position_h_file_masked = king_position & FileBoundMask::H;
 
-        // bitwise OR all moves together, all 1's will appear in this bitboard
-        let all_moves = moves
-            .into_iter()
-            .fold(Bitboard::EMPTY, |curr, next| (curr | next));
+        // board move representation:
+        // 1  4  6
+        // 2 (K) 7
+        // 3  5  8
 
-        // bitwise AND all_moves with the negation of the same color pieces,
-        // wherever there is a king move on top of the same color piece, 1 & !(1) => 1 & 0 => 0
-        let valid_moves = all_moves & !same_color_pieces;
+        // generate regular moves by bit shifting in each direction
+        let mut regular_moves = Bitboard::EMPTY;
+        regular_moves |= king_position_a_file_masked >> Direction::NW;
+        regular_moves |= king_position_a_file_masked >> Direction::W;
+        regular_moves |= king_position_a_file_masked >> Direction::SW;
+        regular_moves |= king_position >> Direction::N;
+        regular_moves |= king_position >> Direction::S;
+        regular_moves |= king_position_h_file_masked >> Direction::NE;
+        regular_moves |= king_position_h_file_masked >> Direction::E;
+        regular_moves |= king_position_h_file_masked >> Direction::SE;
 
-        valid_moves
+        // cannot move into squares occupied by the same color
+        regular_moves &= !info.same_pieces;
+
+        while !regular_moves.is_empty() {
+            let to = regular_moves.pop_first_square();
+            let mut m = Move::new(from, to, Piece::King);
+
+            // if an opposing piece is on this square, add a capture flag to it
+            if let Some(piece) = info.board.piece_at_square(to, info.inactive_color) {
+                m.set_flag(MoveFlag::Capture(piece));
+            }
+
+            moves.push(m);
+        }
+
+        // kingside castle check
+        if info.king_castle_rights
+            && (info.all_pieces & CastleMask::KINGSIDE[info.active_color]).is_empty()
+        {
+            moves.push(Move::new_with_flag(
+                from,
+                from + 2,
+                Piece::King,
+                MoveFlag::KingCastle,
+            ));
+        }
+
+        // queenside castle check
+        if info.queen_castle_rights
+            && (info.all_pieces & CastleMask::QUEENSIDE[info.active_color]).is_empty()
+        {
+            moves.push(Move::new_with_flag(
+                from,
+                from - 2,
+                Piece::King,
+                MoveFlag::QueenCastle,
+            ));
+        }
+
+        moves
     }
 
-    // board move representation:
-    // .  3  .  5  .
-    // 1  .  .  .  7
-    // .  . (N) .  .
-    // 2  .  .  .  8
-    // .  4  .  6  .
-    // moves 1,2 need to be bounds checked against A and B file
-    // moves 3,4 need to be bounds checked against A file
-    // moves 5,6 need to be bounds checked against H file
-    // moves 7,8 need to be bounds checked against G and H file
     // TODO - this method is verrrry similar to king moves, maybe some parts can be combined
-    fn generate_knight_moves(knight_position: Bitboard, same_color_pieces: Bitboard) -> Bitboard {
-        // bounds check against files
-        let knight_position_not_a_file = knight_position & FileBoundMask::A;
-        let knight_position_not_h_file = knight_position & FileBoundMask::H;
-        let knight_position_not_ab_file = knight_position_not_a_file & FileBoundMask::B;
-        let knight_position_not_gh_file = knight_position_not_h_file & FileBoundMask::G;
+    fn generate_knight_moves(knight_position: Bitboard, info: &BoardInfo) -> Vec<Move> {
+        let mut moves: Vec<Move> = Vec::new();
+        let from = knight_position.get_first_square();
 
-        // first shift the knight position in each L shape, applying bounds checking when needed
-        let moves: [Bitboard; 8] = [
-            knight_position_not_ab_file >> Direction::NW + Direction::W,
-            knight_position_not_ab_file >> Direction::SW + Direction::W,
-            knight_position_not_a_file >> Direction::NW + Direction::N,
-            knight_position_not_a_file >> Direction::SW + Direction::S,
-            knight_position_not_h_file >> Direction::NE + Direction::N,
-            knight_position_not_h_file >> Direction::SE + Direction::S,
-            knight_position_not_gh_file >> Direction::NE + Direction::E,
-            knight_position_not_gh_file >> Direction::SE + Direction::E,
-        ];
+        let knight_position_a_file_masked = knight_position & FileBoundMask::A;
+        let knight_position_h_file_masked = knight_position & FileBoundMask::H;
+        let knight_position_ab_file_masked = knight_position_a_file_masked & FileBoundMask::B;
+        let knight_position_gh_file_masked = knight_position_h_file_masked & FileBoundMask::G;
 
-        // bitwise OR all moves together, all 1's will appear in this bitboard
-        let all_moves = moves
-            .into_iter()
-            .fold(Bitboard::EMPTY, |curr, next| (curr | next));
+        // board move representation:
+        // .  3  .  5  .
+        // 1  .  .  .  7
+        // .  . (N) .  .
+        // 2  .  .  .  8
+        // .  4  .  6  .
 
-        // bitwise AND all_moves with the negation of the same color pieces
-        let valid_moves = all_moves & !same_color_pieces;
+        // generate regular moves by bitshifting in each L shape
+        let mut regular_moves = Bitboard::EMPTY;
+        regular_moves |= knight_position_ab_file_masked >> Direction::NW + Direction::W;
+        regular_moves |= knight_position_ab_file_masked >> Direction::SW + Direction::W;
+        regular_moves |= knight_position_a_file_masked >> Direction::NW + Direction::N;
+        regular_moves |= knight_position_a_file_masked >> Direction::SW + Direction::S;
+        regular_moves |= knight_position_h_file_masked >> Direction::NE + Direction::N;
+        regular_moves |= knight_position_h_file_masked >> Direction::SE + Direction::S;
+        regular_moves |= knight_position_gh_file_masked >> Direction::NE + Direction::E;
+        regular_moves |= knight_position_gh_file_masked >> Direction::SE + Direction::E;
 
-        valid_moves
+        // cannot move into squares occupied by the same color
+        regular_moves &= !info.same_pieces;
+
+        while !regular_moves.is_empty() {
+            let to = regular_moves.pop_first_square();
+            let mut m = Move::new(from, to, Piece::Knight);
+
+            // if an opposing piece is on this square, add a capture flag to it
+            if let Some(piece) = info.board.piece_at_square(to, info.inactive_color) {
+                m.set_flag(MoveFlag::Capture(piece));
+            }
+
+            moves.push(m);
+        }
+
+        moves
     }
 
     // board move representation:

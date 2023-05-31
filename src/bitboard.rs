@@ -40,6 +40,11 @@ impl Bitboard {
         Self::MSB >> square
     }
 
+    /// Returns `true` if there is a 1 bit at the given square, `false` if not
+    pub fn bit_at(self, square: Square) -> bool {
+        !(self & Self::shifted_board(square)).is_empty()
+    }
+
     /// Returns the square of the first 1 bit in the board, starting from MSB
     pub fn get_first_square(self) -> Square {
         self.0.leading_zeros() as Square

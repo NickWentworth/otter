@@ -161,6 +161,33 @@ impl Board {
             None => Bitboard::EMPTY,
         }
     }
+
+    /// Returns a tuple of the active color's castling rights, organized as (kingside, queenside)
+    pub fn active_castling_rights(&self) -> (bool, bool) {
+        match self.active_color() {
+            Color::White => (
+                self.game_state.white_king_castle,
+                self.game_state.white_queen_castle,
+            ),
+            Color::Black => (
+                self.game_state.black_king_castle,
+                self.game_state.black_queen_castle,
+            ),
+        }
+    }
+
+    /// If there is a piece of a given color at the square, returns that piece
+    pub fn piece_at_square(&self, square: Square, color: Color) -> Option<Piece> {
+        use Piece::*;
+
+        for piece in [Pawn, Knight, Bishop, Rook, Queen, King] {
+            if (self.colors[color] & self.pieces[piece]).bit_at(square) {
+                return Some(piece);
+            }
+        }
+
+        None
+    }
 }
 
 impl Display for Board {

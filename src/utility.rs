@@ -1,4 +1,7 @@
-use crate::bitboard::{Bitboard, Square};
+use crate::{
+    bitboard::{Bitboard, Square},
+    types::NUM_COLORS,
+};
 
 // general utility methods used throughout the program
 
@@ -53,4 +56,20 @@ impl RankPositionMask {
     // ...
     pub const SIXTH: Bitboard = Bitboard(0x00_00_FF_00_00_00_00_00);
     // ...
+}
+
+/// Can be bitwise AND-ed to test for valid castling squares
+///
+/// Indexed by the `Color` of the king being castled
+pub struct CastleMask;
+impl CastleMask {
+    pub const KINGSIDE: [Bitboard; NUM_COLORS] = [
+        Bitboard(0x00_00_00_00_00_00_00_06),
+        Bitboard(0x06_00_00_00_00_00_00_00),
+    ];
+
+    pub const QUEENSIDE: [Bitboard; NUM_COLORS] = [
+        Bitboard(0x00_00_00_00_00_00_00_70),
+        Bitboard(0x70_00_00_00_00_00_00_00),
+    ];
 }
