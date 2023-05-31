@@ -3,7 +3,7 @@ use std::fmt::Display;
 use crate::{
     bitboard::{Bitboard, Square},
     fen::{check_valid_fen, DEFAULT_FEN},
-    move_generator::Move,
+    move_generator::{Move, MoveFlag},
     types::{Color, Piece, NUM_COLORS, NUM_PIECES},
     utility::square_from_algebraic,
 };
@@ -116,22 +116,134 @@ impl Board {
         // store locally because of borrow checker
         let moving_color = self.active_color();
 
-        // bitwise XOR with a board with 1's at both from and to squares for colors
-        // the from location will be set to 0 and the to location will be set to 1
-        // other locations will be left unchanged (0^0 = 0, 1^0 = 1)
-        let move_board = Bitboard::shifted_board(m.from) | Bitboard::shifted_board(m.to);
+        // make the move, just set move bits m.from -> m.to
+        self.colors[moving_color].set_bit_at(m.from, false);
+        self.colors[moving_color].set_bit_at(m.to, true);
+        self.pieces[m.piece].set_bit_at(m.from, false);
+        self.pieces[m.piece].set_bit_at(m.to, true);
 
-        // apply the changes
-        self.colors[moving_color] ^= move_board;
-        self.pieces[m.piece] ^= move_board;
+        // apply the unique move flag cases
+        use MoveFlag::*;
+        match m.flag {
+            // nothing more to do
+            Quiet => (),
 
-        // update game state
-        // TODO - more updating needs to be done after further move flags are added
-        if moving_color == Color::Black {
-            self.game_state.fullmove += 1;
+            // need to change to piece from pawn to the promoted one
+            Promotion(promoted_piece) => {
+                self.pieces[m.piece].set_bit_at(m.to, false);
+                self.pieces[promoted_piece].set_bit_at(m.to, true);
+            }
+
+            // need to remove the opposing color's piece
+            Capture(captured_piece) => {
+                self.colors[moving_color.opposite()].set_bit_at(m.to, false);
+                self.pieces[captured_piece].set_bit_at(m.to, false);
+            }
+
+            // combination of capture and promotion
+            CapturePromotion(captured_piece, promoted_piece) => {
+                // do promotion changes
+                self.pieces[m.piece].set_bit_at(m.to, false);
+                self.pieces[promoted_piece].set_bit_at(m.to, true);
+
+                // do capture changes
+                self.colors[moving_color.opposite()].set_bit_at(m.to, false);
+                self.pieces[captured_piece].set_bit_at(m.to, false);
+            }
+
+            // set the en passant square later on
+            PawnDoubleMove(_) => (),
+
+            // move the rook to the correct square and change castling rights
+            KingCastle => {
+                // move rook (calculated from m.to)
+                self.colors[moving_color].set_bit_at(m.to + 1, false);
+                self.colors[moving_color].set_bit_at(m.to - 1, true);
+
+                self.pieces[Piece::Rook].set_bit_at(m.to + 1, false);
+                self.pieces[Piece::Rook].set_bit_at(m.to - 1, true);
+
+                // finally remove castling rights
+                match moving_color {
+                    Color::White => {
+                        self.game_state.white_king_castle = false;
+                        self.game_state.white_queen_castle = false;
+                    }
+                    Color::Black => {
+                        self.game_state.black_king_castle = false;
+                        self.game_state.black_queen_castle = false;
+                    }
+                }
+            }
+
+            // move the rook to the correct square and change castling rights
+            QueenCastle => {
+                // move rook (calculated from m.to)
+                self.colors[moving_color].set_bit_at(m.to - 2, false);
+                self.colors[moving_color].set_bit_at(m.to + 1, true);
+
+                self.pieces[Piece::Rook].set_bit_at(m.to - 2, false);
+                self.pieces[Piece::Rook].set_bit_at(m.to + 1, true);
+
+                // finally remove castling rights
+                match moving_color {
+                    Color::White => {
+                        self.game_state.white_king_castle = false;
+                        self.game_state.white_queen_castle = false;
+                    }
+                    Color::Black => {
+                        self.game_state.black_king_castle = false;
+                        self.game_state.black_queen_castle = false;
+                    }
+                }
+            }
         }
 
-        self.game_state.current_turn = self.game_state.current_turn.opposite();
+        // update the rest of game state
+        self.game_state = GameState {
+            current_turn: moving_color.opposite(),
+            white_king_castle: self.game_state.white_king_castle, // update castling rights outside of here, too messy with logic
+            white_queen_castle: self.game_state.white_queen_castle,
+            black_king_castle: self.game_state.black_king_castle,
+            black_queen_castle: self.game_state.black_queen_castle,
+            en_passant_square: match m.flag {
+                PawnDoubleMove(square) => Some(square),
+                _ => None,
+            },
+            halfmove: match (m.piece, m.flag) {
+                // reset halfmove if pawn push or capture occurred, else increment it
+                // other cases for resetting (such as capture promotions) are still pawn moves, so this should match them all
+                (Piece::Pawn, _) => 0,
+                (_, MoveFlag::Capture(_)) => 0,
+                _ => self.game_state.halfmove + 1,
+            },
+            fullmove: match moving_color {
+                // increment fullmove if moving color is black
+                Color::Black => self.game_state.fullmove + 1,
+                Color::White => self.game_state.fullmove,
+            },
+        };
+
+        // check if rook/king has been moved to change castling rights
+        let (kingside_rights, queenside_rights) = self.active_castling_rights();
+
+        // TODO - add these rook squares as constants elsewhere
+        // kingside check
+        if kingside_rights && (m.piece == Piece::Rook) && (m.from == 7 || m.from == 63) {
+            match moving_color {
+                Color::White => self.game_state.white_king_castle = false,
+                Color::Black => self.game_state.black_king_castle = false,
+            }
+        }
+
+        // TODO - add these rook squares as constants elsewhere
+        // queenside check
+        if queenside_rights && (m.piece == Piece::Rook) && (m.from == 0 || m.from == 56) {
+            match moving_color {
+                Color::White => self.game_state.white_queen_castle = false,
+                Color::Black => self.game_state.black_queen_castle = false,
+            }
+        }
     }
 
     /// Generates a bitboard of pieces matching the given type that can move this turn

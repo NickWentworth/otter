@@ -3,6 +3,7 @@ use crate::board::Board;
 use crate::types::{Color, Piece};
 use crate::utility::{CastleMask, FileBoundMask, RankPositionMask};
 
+#[derive(Clone, Copy)]
 pub enum MoveFlag {
     Quiet,                          // nothing special, regular move that doesn't have any flags
     Capture(Piece),                 // opponent piece that was captured
@@ -346,6 +347,7 @@ impl MoveGenerator {
         while !attacks.is_empty() {
             let to = attacks.pop_first_square();
 
+            // FIXME - this will probably lead to a panic if the en passant square is attacked, as there isn't really a piece there
             // cannot be an empty square, safe to unwrap
             let captured_piece = info.board.piece_at_square(to, info.inactive_color).unwrap();
 

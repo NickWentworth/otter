@@ -20,7 +20,7 @@ macro_rules! index_traits {
     };
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum Piece {
     Pawn,
     Knight,

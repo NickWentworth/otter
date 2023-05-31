@@ -45,6 +45,17 @@ impl Bitboard {
         !(self & Self::shifted_board(square)).is_empty()
     }
 
+    /// Mutates the bitboard by setting the bit at a given square to a 1 (`true`) or 0 (`false`)
+    pub fn set_bit_at(&mut self, square: Square, state: bool) {
+        if state {
+            // set this square to 1 (OR-ing with board of all 0's)
+            *self |= Self::shifted_board(square);
+        } else {
+            // set this square to 0 (AND-ing with board of all 1's)
+            *self &= !Self::shifted_board(square);
+        }
+    }
+
     /// Returns the square of the first 1 bit in the board, starting from MSB
     pub fn get_first_square(self) -> Square {
         self.0.leading_zeros() as Square
