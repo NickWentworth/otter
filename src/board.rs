@@ -11,10 +11,8 @@ use crate::{
 /// Variables related to conditions of the game
 struct GameState {
     current_turn: Color,
-    white_king_castle: bool, // castling availability for each color and king/queen side
-    white_queen_castle: bool,
-    black_king_castle: bool,
-    black_queen_castle: bool,
+    king_castle: [bool; NUM_COLORS], // castling availability for each color and king/queen side
+    queen_castle: [bool; NUM_COLORS],
     en_passant_square: Option<Square>,
     halfmove: u32, // halfmove counter, incremented after each color's move
     fullmove: u32, // fullmove counter, only incremented after black's move
@@ -25,6 +23,23 @@ pub struct Board {
     pieces: [Bitboard; NUM_PIECES],
     colors: [Bitboard; NUM_COLORS],
     game_state: GameState,
+}
+
+/// Contains important info for move generation that is fetched once and used multiple times
+pub struct BoardInfo<'a> {
+    pub active_color: Color,
+    pub inactive_color: Color,
+
+    pub same_pieces: Bitboard,
+    pub opposing_pieces: Bitboard,
+    pub all_pieces: Bitboard,
+    pub no_pieces: Bitboard,
+
+    pub en_passant: Bitboard,
+    pub king_castle_rights: bool,
+    pub queen_castle_rights: bool,
+
+    pub board: &'a Board,
 }
 
 impl Board {
@@ -98,10 +113,8 @@ impl Board {
                 } else {
                     Color::Black
                 },
-                white_king_castle: fen_parts[2].contains('K'),
-                white_queen_castle: fen_parts[2].contains('Q'),
-                black_king_castle: fen_parts[2].contains('k'),
-                black_queen_castle: fen_parts[2].contains('q'),
+                king_castle: [fen_parts[2].contains('K'), fen_parts[2].contains('k')],
+                queen_castle: [fen_parts[2].contains('Q'), fen_parts[2].contains('q')],
                 en_passant_square: square_from_algebraic(&fen_parts[3]), // will handle correctly if passed "-"
                 halfmove: fen_parts[4].parse().unwrap(),
                 fullmove: fen_parts[5].parse().unwrap(),
@@ -114,7 +127,7 @@ impl Board {
     /// Assumes `m` is a valid and legal move
     pub fn make_move(&mut self, m: &Move) {
         // store locally because of borrow checker
-        let moving_color = self.active_color();
+        let moving_color = self.game_state.current_turn;
 
         // make the move, just set move bits m.from -> m.to
         self.colors[moving_color].set_bit_at(m.from, false);
@@ -164,16 +177,8 @@ impl Board {
                 self.pieces[Piece::Rook].set_bit_at(m.to - 1, true);
 
                 // finally remove castling rights
-                match moving_color {
-                    Color::White => {
-                        self.game_state.white_king_castle = false;
-                        self.game_state.white_queen_castle = false;
-                    }
-                    Color::Black => {
-                        self.game_state.black_king_castle = false;
-                        self.game_state.black_queen_castle = false;
-                    }
-                }
+                self.game_state.king_castle[moving_color] = false;
+                self.game_state.queen_castle[moving_color] = false;
             }
 
             // move the rook to the correct square and change castling rights
@@ -186,26 +191,16 @@ impl Board {
                 self.pieces[Piece::Rook].set_bit_at(m.to + 1, true);
 
                 // finally remove castling rights
-                match moving_color {
-                    Color::White => {
-                        self.game_state.white_king_castle = false;
-                        self.game_state.white_queen_castle = false;
-                    }
-                    Color::Black => {
-                        self.game_state.black_king_castle = false;
-                        self.game_state.black_queen_castle = false;
-                    }
-                }
+                self.game_state.king_castle[moving_color] = false;
+                self.game_state.queen_castle[moving_color] = false;
             }
         }
 
         // update the rest of game state
         self.game_state = GameState {
             current_turn: moving_color.opposite(),
-            white_king_castle: self.game_state.white_king_castle, // update castling rights outside of here, too messy with logic
-            white_queen_castle: self.game_state.white_queen_castle,
-            black_king_castle: self.game_state.black_king_castle,
-            black_queen_castle: self.game_state.black_queen_castle,
+            king_castle: self.game_state.king_castle, // update castling rights outside of here, too messy with logic
+            queen_castle: self.game_state.queen_castle,
             en_passant_square: match m.flag {
                 PawnDoubleMove(square) => Some(square),
                 _ => None,
@@ -225,67 +220,56 @@ impl Board {
         };
 
         // check if rook/king has been moved to change castling rights
-        let (kingside_rights, queenside_rights) = self.active_castling_rights();
+        let kingside_rights = self.game_state.king_castle[moving_color];
+        let queenside_rights = self.game_state.queen_castle[moving_color];
 
         // TODO - add these rook squares as constants elsewhere
         // kingside check
         if kingside_rights && (m.piece == Piece::Rook) && (m.from == 7 || m.from == 63) {
-            match moving_color {
-                Color::White => self.game_state.white_king_castle = false,
-                Color::Black => self.game_state.black_king_castle = false,
-            }
+            self.game_state.king_castle[moving_color] = false;
         }
 
         // TODO - add these rook squares as constants elsewhere
         // queenside check
         if queenside_rights && (m.piece == Piece::Rook) && (m.from == 0 || m.from == 56) {
-            match moving_color {
-                Color::White => self.game_state.white_queen_castle = false,
-                Color::Black => self.game_state.black_queen_castle = false,
-            }
+            self.game_state.queen_castle[moving_color] = false;
+        }
+    }
+
+    pub fn get_board_info(&self) -> BoardInfo {
+        let active_color = self.game_state.current_turn;
+        let inactive_color = active_color.opposite();
+
+        let same_pieces = self.colors[active_color];
+        let opposing_pieces = self.colors[inactive_color];
+        let all_pieces = same_pieces | opposing_pieces;
+        let no_pieces = !all_pieces;
+
+        let en_passant = match self.game_state.en_passant_square {
+            Some(square) => Bitboard::shifted_board(square),
+            None => Bitboard::EMPTY,
+        };
+
+        let king_castle_rights = self.game_state.king_castle[active_color];
+        let queen_castle_rights = self.game_state.queen_castle[active_color];
+
+        BoardInfo {
+            active_color,
+            inactive_color,
+            same_pieces,
+            opposing_pieces,
+            all_pieces,
+            no_pieces,
+            en_passant,
+            king_castle_rights,
+            queen_castle_rights,
+            board: &self,
         }
     }
 
     /// Generates a bitboard of pieces matching the given type that can move this turn
     pub fn active_piece_board(&self, piece: Piece) -> Bitboard {
-        self.pieces[piece] & self.active_color_board()
-    }
-
-    /// Returns a copy of the bitboard of the current moving color
-    pub fn active_color_board(&self) -> Bitboard {
-        self.colors[self.game_state.current_turn]
-    }
-
-    /// Returns a copy of the bitboard of the current non-moving color
-    pub fn inactive_color_board(&self) -> Bitboard {
-        self.colors[self.game_state.current_turn.opposite()]
-    }
-
-    /// Returns the color enum of the current moving color
-    pub fn active_color(&self) -> Color {
-        self.game_state.current_turn
-    }
-
-    /// Generates a bitboard containing the en passant square or an empty board if there is no square
-    pub fn en_passant_square(&self) -> Bitboard {
-        match self.game_state.en_passant_square {
-            Some(square) => Bitboard::shifted_board(square),
-            None => Bitboard::EMPTY,
-        }
-    }
-
-    /// Returns a tuple of the active color's castling rights, organized as (kingside, queenside)
-    pub fn active_castling_rights(&self) -> (bool, bool) {
-        match self.active_color() {
-            Color::White => (
-                self.game_state.white_king_castle,
-                self.game_state.white_queen_castle,
-            ),
-            Color::Black => (
-                self.game_state.black_king_castle,
-                self.game_state.black_queen_castle,
-            ),
-        }
+        self.pieces[piece] & self.colors[self.game_state.current_turn]
     }
 
     /// If there is a piece of a given color at the square, returns that piece
@@ -365,22 +349,22 @@ impl Display for Board {
 
         let castle_info = format!(
             "Castling availability: {} {} {} {}\n",
-            if self.game_state.white_king_castle {
+            if self.game_state.king_castle[Color::White] {
                 "K"
             } else {
                 "-"
             },
-            if self.game_state.white_queen_castle {
+            if self.game_state.queen_castle[Color::White] {
                 "Q"
             } else {
                 "-"
             },
-            if self.game_state.black_king_castle {
+            if self.game_state.king_castle[Color::Black] {
                 "k"
             } else {
                 "-"
             },
-            if self.game_state.black_queen_castle {
+            if self.game_state.queen_castle[Color::Black] {
                 "q"
             } else {
                 "-"

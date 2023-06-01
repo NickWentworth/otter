@@ -3,24 +3,24 @@ use std::ops::{Index, IndexMut};
 
 /// Adds `Index` and `IndexMut` traits so that bitboard arrays can be indexed by enums
 macro_rules! index_traits {
-    ( $t:ty ) => {
-        impl Index<$t> for [Bitboard] {
-            type Output = Bitboard;
+    ( $t1:ty, $t2:ty ) => {
+        impl Index<$t1> for [$t2] {
+            type Output = $t2;
 
-            fn index(&self, index: $t) -> &Self::Output {
+            fn index(&self, index: $t1) -> &Self::Output {
                 &self[index as usize]
             }
         }
 
-        impl IndexMut<$t> for [Bitboard] {
-            fn index_mut(&mut self, index: $t) -> &mut Self::Output {
+        impl IndexMut<$t1> for [$t2] {
+            fn index_mut(&mut self, index: $t1) -> &mut Self::Output {
                 &mut self[index as usize]
             }
         }
     };
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Piece {
     Pawn,
     Knight,
@@ -30,15 +30,16 @@ pub enum Piece {
     King,
 }
 pub const NUM_PIECES: usize = 6;
-index_traits!(Piece);
+index_traits!(Piece, Bitboard);
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Color {
     White,
     Black,
 }
 pub const NUM_COLORS: usize = 2;
-index_traits!(Color);
+index_traits!(Color, Bitboard);
+index_traits!(Color, bool);
 
 impl Color {
     /// Returns the opposite color to the given one

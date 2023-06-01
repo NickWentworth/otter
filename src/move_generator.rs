@@ -1,9 +1,9 @@
 use crate::bitboard::{Bitboard, Square};
-use crate::board::Board;
+use crate::board::{Board, BoardInfo};
 use crate::types::{Color, Piece};
 use crate::utility::{CastleMask, FileBoundMask, RankPositionMask};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum MoveFlag {
     Quiet,                          // nothing special, regular move that doesn't have any flags
     Capture(Piece),                 // opponent piece that was captured
@@ -15,6 +15,7 @@ pub enum MoveFlag {
 }
 
 /// Describes a move on the board and information related to that move
+#[derive(Debug)]
 pub struct Move {
     pub from: Square,
     pub to: Square,
@@ -63,22 +64,6 @@ impl Direction {
 
 type DirectionAttackPair = (isize, [Bitboard; 64]);
 
-struct BoardInfo<'a> {
-    pub active_color: Color,
-    pub inactive_color: Color,
-
-    pub same_pieces: Bitboard,
-    pub oppposing_pieces: Bitboard,
-    pub all_pieces: Bitboard,
-    pub no_pieces: Bitboard,
-
-    pub en_passant: Bitboard,
-    pub king_castle_rights: bool,
-    pub queen_castle_rights: bool,
-
-    pub board: &'a Board,
-}
-
 pub struct MoveGenerator {
     diagonal_attacks: [DirectionAttackPair; 4],
     straight_attacks: [DirectionAttackPair; 4],
@@ -94,8 +79,8 @@ impl MoveGenerator {
             for square in 0..=63 {
                 // generate the initial square the piece is on
                 // and the square of the next attack, with the bitwise operation being handled for negative directions
-                let mut attack: Bitboard = Bitboard::shifted_board(square);
-                let mut next_attack: Bitboard = attack >> direction_offset;
+                let mut attack = Bitboard::shifted_board(square);
+                let mut next_attack = attack >> direction_offset;
 
                 // to tell if we are going off to the other side, the attack and next attack will be on the A and H file
                 while !((attack & FileBoundMask::A) | (next_attack & FileBoundMask::H)).is_empty()
@@ -128,23 +113,8 @@ impl MoveGenerator {
 
         let mut moves: Vec<Move> = Vec::new();
 
-        // TODO - this could probably be returned from a board method
         // fetch these once instead of generating for every piece
-        let info = BoardInfo {
-            active_color: board.active_color(),
-            inactive_color: board.active_color().opposite(),
-
-            same_pieces: board.active_color_board(),
-            oppposing_pieces: board.inactive_color_board(),
-            all_pieces: board.active_color_board() | board.inactive_color_board(),
-            no_pieces: !(board.active_color_board() | board.inactive_color_board()),
-
-            en_passant: board.en_passant_square(),
-            king_castle_rights: board.active_castling_rights().0,
-            queen_castle_rights: board.active_castling_rights().1,
-
-            board,
-        };
+        let info = board.get_board_info();
 
         // iterate through each type of piece
         for piece in [Pawn, Knight, Bishop, Rook, Queen, King] {
@@ -342,7 +312,7 @@ impl MoveGenerator {
         // check for attacks in diagonal directions
         let left_attack = (pawn_position & FileBoundMask::A) >> (direction - 1);
         let right_attack = (pawn_position & FileBoundMask::H) >> (direction + 1);
-        let mut attacks = (left_attack | right_attack) & (info.oppposing_pieces | info.en_passant);
+        let mut attacks = (left_attack | right_attack) & (info.opposing_pieces | info.en_passant);
 
         while !attacks.is_empty() {
             let to = attacks.pop_first_square();
