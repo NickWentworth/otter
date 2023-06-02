@@ -1,5 +1,5 @@
 use crate::bitboard::{Bitboard, Square};
-use crate::board::{Board, BoardInfo};
+use crate::board::{Board, MoveGenBoardInfo};
 use crate::types::{Color, Piece};
 use crate::utility::{CastleMask, FileBoundMask, RankPositionMask};
 
@@ -146,7 +146,7 @@ impl MoveGenerator {
     }
 
     // TODO - prevent king from moving/castling into attacks
-    fn generate_king_moves(king_position: Bitboard, info: &BoardInfo) -> Vec<Move> {
+    fn generate_king_moves(king_position: Bitboard, info: &MoveGenBoardInfo) -> Vec<Move> {
         let mut moves: Vec<Move> = Vec::new();
         let from = king_position.get_first_square();
 
@@ -178,7 +178,7 @@ impl MoveGenerator {
             let mut m = Move::new(from, to, Piece::King);
 
             // if an opposing piece is on this square, add a capture flag to it
-            if let Some(piece) = info.board.piece_at_square(to, info.inactive_color) {
+            if let Some(piece) = info.piece_list[to as usize] {
                 m.set_flag(MoveFlag::Capture(piece));
             }
 
@@ -213,7 +213,7 @@ impl MoveGenerator {
     }
 
     // TODO - this method is verrrry similar to king moves, maybe some parts can be combined
-    fn generate_knight_moves(knight_position: Bitboard, info: &BoardInfo) -> Vec<Move> {
+    fn generate_knight_moves(knight_position: Bitboard, info: &MoveGenBoardInfo) -> Vec<Move> {
         let mut moves: Vec<Move> = Vec::new();
         let from = knight_position.get_first_square();
 
@@ -248,7 +248,7 @@ impl MoveGenerator {
             let mut m = Move::new(from, to, Piece::Knight);
 
             // if an opposing piece is on this square, add a capture flag to it
-            if let Some(piece) = info.board.piece_at_square(to, info.inactive_color) {
+            if let Some(piece) = info.piece_list[to as usize] {
                 m.set_flag(MoveFlag::Capture(piece));
             }
 
@@ -258,7 +258,7 @@ impl MoveGenerator {
         moves
     }
 
-    fn generate_pawn_moves(pawn_position: Bitboard, info: &BoardInfo) -> Vec<Move> {
+    fn generate_pawn_moves(pawn_position: Bitboard, info: &MoveGenBoardInfo) -> Vec<Move> {
         let mut moves: Vec<Move> = Vec::new();
         let from = pawn_position.get_first_square();
 
@@ -319,7 +319,7 @@ impl MoveGenerator {
 
             // FIXME - this will probably lead to a panic if the en passant square is attacked, as there isn't really a piece there
             // cannot be an empty square, safe to unwrap
-            let captured_piece = info.board.piece_at_square(to, info.inactive_color).unwrap();
+            let captured_piece = info.piece_list[to as usize].unwrap();
 
             // check if this is a promotion rank here as well
             if (forward_move & RankPositionMask::PROMOTION).is_empty() {
@@ -358,7 +358,7 @@ impl MoveGenerator {
         &self,
         piece_position: Bitboard,
         piece: Piece,
-        info: &BoardInfo,
+        info: &MoveGenBoardInfo,
     ) -> Vec<Move> {
         // get the square this bishop is on to index attack direction arrays
         let mut moves: Vec<Move> = Vec::new();
@@ -411,7 +411,7 @@ impl MoveGenerator {
             let mut m = Move::new(from, to, piece);
 
             // if an opposing piece is on this square, add a capture flag to it
-            if let Some(piece) = info.board.piece_at_square(to, info.inactive_color) {
+            if let Some(piece) = info.piece_list[to as usize] {
                 m.set_flag(MoveFlag::Capture(piece));
             }
 

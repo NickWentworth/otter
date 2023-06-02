@@ -26,7 +26,7 @@ pub struct Board {
 }
 
 /// Contains important info for move generation that is fetched once and used multiple times
-pub struct BoardInfo<'a> {
+pub struct MoveGenBoardInfo {
     pub active_color: Color,
     pub inactive_color: Color,
 
@@ -39,7 +39,7 @@ pub struct BoardInfo<'a> {
     pub king_castle_rights: bool,
     pub queen_castle_rights: bool,
 
-    pub board: &'a Board,
+    pub piece_list: [Option<Piece>; 64],
 }
 
 impl Board {
@@ -236,7 +236,8 @@ impl Board {
         }
     }
 
-    pub fn get_board_info(&self) -> BoardInfo {
+    /// Returns a structure used for move generation that contains needed info about the board
+    pub fn get_board_info(&self) -> MoveGenBoardInfo {
         let active_color = self.game_state.current_turn;
         let inactive_color = active_color.opposite();
 
@@ -253,7 +254,7 @@ impl Board {
         let king_castle_rights = self.game_state.king_castle[active_color];
         let queen_castle_rights = self.game_state.queen_castle[active_color];
 
-        BoardInfo {
+        MoveGenBoardInfo {
             active_color,
             inactive_color,
             same_pieces,
@@ -263,7 +264,7 @@ impl Board {
             en_passant,
             king_castle_rights,
             queen_castle_rights,
-            board: &self,
+            piece_list: self.get_piece_list(),
         }
     }
 
@@ -272,17 +273,22 @@ impl Board {
         self.pieces[piece] & self.colors[self.game_state.current_turn]
     }
 
-    /// If there is a piece of a given color at the square, returns that piece
-    pub fn piece_at_square(&self, square: Square, color: Color) -> Option<Piece> {
+    /// Generates a piece list, containing (if there exists) the piece at every square
+    ///
+    /// Useful when we have an index of a square and want to know the piece it exists at
+    fn get_piece_list(&self) -> [Option<Piece>; 64] {
         use Piece::*;
+        let mut list: [Option<Piece>; 64] = [None; 64];
 
         for piece in [Pawn, Knight, Bishop, Rook, Queen, King] {
-            if (self.colors[color] & self.pieces[piece]).bit_at(square) {
-                return Some(piece);
+            let mut piece_board = self.pieces[piece].clone();
+
+            while !piece_board.is_empty() {
+                list[piece_board.pop_first_square() as usize] = Some(piece);
             }
         }
 
-        None
+        list
     }
 }
 
