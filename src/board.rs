@@ -167,6 +167,12 @@ impl Board {
             // set the en passant square later on
             PawnDoubleMove(_) => (),
 
+            // en passant square is in a different spot than a regular capture
+            EnPassantCapture(enemy_pawn_square) => {
+                self.colors[moving_color.opposite()].set_bit_at(enemy_pawn_square, false);
+                self.pieces[Piece::Pawn].set_bit_at(enemy_pawn_square, false);
+            }
+
             // move the rook to the correct square and change castling rights
             KingCastle => {
                 // move rook (calculated from m.to)
@@ -354,7 +360,7 @@ impl Display for Board {
         output.push_str(&move_info);
 
         let castle_info = format!(
-            "Castling availability: {} {} {} {}\n",
+            "Castling availability: {} {} {} {} | En passant square: {}\n",
             if self.game_state.king_castle[Color::White] {
                 "K"
             } else {
@@ -375,6 +381,10 @@ impl Display for Board {
             } else {
                 "-"
             },
+            match self.game_state.en_passant_square {
+                Some(square) => square.to_string(),
+                None => "-".to_string(),
+            }
         );
         output.push_str(&castle_info);
 

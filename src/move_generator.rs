@@ -10,6 +10,7 @@ pub enum MoveFlag {
     Promotion(Piece),               // pawn was promoted into a piece
     CapturePromotion(Piece, Piece), // opponent piece that was captured as well as the piece promoted into
     PawnDoubleMove(Square),         // pawn double moved and stores the en passant square
+    EnPassantCapture(Square),       // holds the square of the captured (just en passant-ed) pawn
     KingCastle,                     // kingside castle
     QueenCastle,                    // queenside castle
 }
@@ -312,12 +313,12 @@ impl MoveGenerator {
         // check for attacks in diagonal directions
         let left_attack = (pawn_position & FileBoundMask::A) >> (direction - 1);
         let right_attack = (pawn_position & FileBoundMask::H) >> (direction + 1);
-        let mut attacks = (left_attack | right_attack) & (info.opposing_pieces | info.en_passant);
 
+        // check for regular pawn attacks, not including en passant capture
+        let mut attacks = (left_attack | right_attack) & info.opposing_pieces;
         while !attacks.is_empty() {
             let to = attacks.pop_first_square();
 
-            // FIXME - this will probably lead to a panic if the en passant square is attacked, as there isn't really a piece there
             // cannot be an empty square, safe to unwrap
             let captured_piece = info.piece_list[to as usize].unwrap();
 
@@ -341,6 +342,22 @@ impl MoveGenerator {
                     ))
                 }
             }
+        }
+
+        // check for attack on en passant square
+        let en_passant_attack = (left_attack | right_attack) & info.en_passant;
+        if !en_passant_attack.is_empty() {
+            // will just be a single bit, no need to pop from bitboard
+            let to = en_passant_attack.get_first_square();
+
+            // opposing piece is located one square away from the attack in the opposite direction of this pawn's movement
+            let opposing_piece_square = ((to as isize) - direction) as Square;
+            moves.push(Move::new_with_flag(
+                from,
+                to,
+                Piece::Pawn,
+                MoveFlag::EnPassantCapture(opposing_piece_square),
+            ))
         }
 
         moves
