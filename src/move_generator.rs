@@ -7,50 +7,41 @@ mod direction;
 mod masks;
 mod moves;
 
-use direction::Direction;
+use direction::{generate_king_moves, generate_knight_moves, generate_sliding_attacks, Direction};
 use masks::{CastleMask, FileBoundMask, RankPositionMask};
 pub use moves::{Move, MoveFlag};
 
 type DirectionAttackPair = (isize, [Bitboard; 64]);
 
 pub struct MoveGenerator {
-    diagonal_attacks: [DirectionAttackPair; 4],
-    straight_attacks: [DirectionAttackPair; 4],
+    // simple move lookup boards
+    king_moves: [Bitboard; 64],
+    knight_moves: [Bitboard; 64],
+    // TODO - see if pawn moves can be generated too
+
+    // sliding move lookup boards
+    diagonal_attacks: Vec<DirectionAttackPair>,
+    straight_attacks: Vec<DirectionAttackPair>,
+    all_attacks: Vec<DirectionAttackPair>,
 }
 
 impl MoveGenerator {
     pub fn new() -> MoveGenerator {
-        // Only needed temporarily, generates the attack ray for all squares in a particular direction
-        let calculate_attack_in_direction = |direction_offset: isize| -> DirectionAttackPair {
-            let mut boards: [Bitboard; 64] = [Bitboard::EMPTY; 64];
-
-            // go through each square in the board to fill it in
-            for square in 0..=63 {
-                // generate the initial square the piece is on
-                // and the square of the next attack, with the bitwise operation being handled for negative directions
-                let mut attack = Bitboard::shifted_board(square);
-                let mut next_attack = attack >> direction_offset;
-
-                // to tell if we are going off to the other side, the attack and next attack will be on the A and H file
-                while !((attack & FileBoundMask::A) | (next_attack & FileBoundMask::H)).is_empty()
-                    && !((attack & FileBoundMask::H) | (next_attack & FileBoundMask::A)).is_empty()
-                {
-                    // if the next attack is valid (and not wrapping to the other side of the board), we can now advance to the next attack (for the while loop)
-                    attack = next_attack;
-                    next_attack = attack >> direction_offset;
-
-                    // add this attack to the boards at the current square
-                    boards[square as usize] |= attack;
-                }
-            }
-
-            (direction_offset, boards)
-        };
-
         MoveGenerator {
-            // generate diagonal attack directions
-            diagonal_attacks: Direction::DIAGONALS.map(calculate_attack_in_direction),
-            straight_attacks: Direction::STRAIGHTS.map(calculate_attack_in_direction),
+            king_moves: generate_king_moves(),
+            knight_moves: generate_knight_moves(),
+
+            diagonal_attacks: Direction::DIAGONALS
+                .map(|direction| (direction, generate_sliding_attacks(direction)))
+                .to_vec(),
+            straight_attacks: Direction::STRAIGHTS
+                .map(|direction| (direction, generate_sliding_attacks(direction)))
+                .to_vec(),
+            all_attacks: [Direction::DIAGONALS, Direction::STRAIGHTS]
+                .concat()
+                .into_iter()
+                .map(|direction| (direction, generate_sliding_attacks(direction)))
+                .collect(),
         }
     }
 
@@ -72,20 +63,20 @@ impl MoveGenerator {
 
             // go through each position that this piece occurs in and pop it from the pieces bitboard
             while !pieces_board.is_empty() {
-                let from = pieces_board.pop_first_square();
-                let piece_position = Bitboard::shifted_board(from);
+                let piece_square = pieces_board.pop_first_square();
+                let piece_position = Bitboard::shifted_board(piece_square);
 
                 // TODO - test if adding to a pre-allocated move buffer is better than this method of extending vectors
                 // and generate the moves for that piece
                 moves.extend(match piece {
                     // regular moving pieces
-                    King => Self::generate_king_moves(piece_position, &info),
-                    Knight => Self::generate_knight_moves(piece_position, &info),
+                    King => self.generate_king_moves(piece_square, &info),
+                    Knight => self.generate_knight_moves(piece_square, &info),
                     Pawn => Self::generate_pawn_moves(piece_position, &info),
 
                     // sliding pieces
                     Bishop | Rook | Queen => {
-                        self.generate_sliding_moves(piece_position, piece, &info)
+                        self.generate_sliding_moves(piece_square, piece, &info)
                     }
                 })
             }
@@ -95,36 +86,18 @@ impl MoveGenerator {
     }
 
     // TODO - prevent king from moving/castling into attacks
-    fn generate_king_moves(king_position: Bitboard, info: &MoveGenBoardInfo) -> Vec<Move> {
+    fn generate_king_moves(&self, king_square: Square, info: &MoveGenBoardInfo) -> Vec<Move> {
         let mut moves: Vec<Move> = Vec::new();
-        let from = king_position.get_first_square();
 
-        let king_position_a_file_masked = king_position & FileBoundMask::A;
-        let king_position_h_file_masked = king_position & FileBoundMask::H;
-
-        // board move representation:
-        // 1  4  6
-        // 2 (K) 7
-        // 3  5  8
-
-        // generate regular moves by bit shifting in each direction
-        let mut regular_moves = Bitboard::EMPTY;
-        regular_moves |= king_position_a_file_masked >> Direction::NW;
-        regular_moves |= king_position_a_file_masked >> Direction::W;
-        regular_moves |= king_position_a_file_masked >> Direction::SW;
-        regular_moves |= king_position >> Direction::N;
-        regular_moves |= king_position >> Direction::S;
-        regular_moves |= king_position_h_file_masked >> Direction::NE;
-        regular_moves |= king_position_h_file_masked >> Direction::E;
-        regular_moves |= king_position_h_file_masked >> Direction::SE;
+        let mut king_moves = self.king_moves[king_square as usize];
 
         // cannot move into squares occupied by the same color
-        regular_moves &= !info.same_pieces;
+        king_moves &= !info.same_pieces;
 
         // TODO - this is a common pattern in the move generation for different pieces, can likely be turned into a function
-        while !regular_moves.is_empty() {
-            let to = regular_moves.pop_first_square();
-            let mut m = Move::new(from, to, Piece::King);
+        while !king_moves.is_empty() {
+            let to = king_moves.pop_first_square();
+            let mut m = Move::new(king_square, to, Piece::King);
 
             // if an opposing piece is on this square, add a capture flag to it
             if let Some(piece) = info.piece_list[to as usize] {
@@ -139,8 +112,8 @@ impl MoveGenerator {
             && (info.all_pieces & CastleMask::KINGSIDE[info.active_color]).is_empty()
         {
             moves.push(Move::new_with_flag(
-                from,
-                from + 2,
+                king_square,
+                king_square + 2,
                 Piece::King,
                 MoveFlag::KingCastle,
             ));
@@ -151,8 +124,8 @@ impl MoveGenerator {
             && (info.all_pieces & CastleMask::QUEENSIDE[info.active_color]).is_empty()
         {
             moves.push(Move::new_with_flag(
-                from,
-                from - 2,
+                king_square,
+                king_square - 2,
                 Piece::King,
                 MoveFlag::QueenCastle,
             ));
@@ -161,40 +134,17 @@ impl MoveGenerator {
         moves
     }
 
-    // TODO - this method is verrrry similar to king moves, maybe some parts can be combined
-    fn generate_knight_moves(knight_position: Bitboard, info: &MoveGenBoardInfo) -> Vec<Move> {
+    fn generate_knight_moves(&self, knight_square: Square, info: &MoveGenBoardInfo) -> Vec<Move> {
         let mut moves: Vec<Move> = Vec::new();
-        let from = knight_position.get_first_square();
 
-        let knight_position_a_file_masked = knight_position & FileBoundMask::A;
-        let knight_position_h_file_masked = knight_position & FileBoundMask::H;
-        let knight_position_ab_file_masked = knight_position_a_file_masked & FileBoundMask::B;
-        let knight_position_gh_file_masked = knight_position_h_file_masked & FileBoundMask::G;
-
-        // board move representation:
-        // .  3  .  5  .
-        // 1  .  .  .  7
-        // .  . (N) .  .
-        // 2  .  .  .  8
-        // .  4  .  6  .
-
-        // generate regular moves by bitshifting in each L shape
-        let mut regular_moves = Bitboard::EMPTY;
-        regular_moves |= knight_position_ab_file_masked >> Direction::NW + Direction::W;
-        regular_moves |= knight_position_ab_file_masked >> Direction::SW + Direction::W;
-        regular_moves |= knight_position_a_file_masked >> Direction::NW + Direction::N;
-        regular_moves |= knight_position_a_file_masked >> Direction::SW + Direction::S;
-        regular_moves |= knight_position_h_file_masked >> Direction::NE + Direction::N;
-        regular_moves |= knight_position_h_file_masked >> Direction::SE + Direction::S;
-        regular_moves |= knight_position_gh_file_masked >> Direction::NE + Direction::E;
-        regular_moves |= knight_position_gh_file_masked >> Direction::SE + Direction::E;
+        let mut knight_moves = self.knight_moves[knight_square as usize];
 
         // cannot move into squares occupied by the same color
-        regular_moves &= !info.same_pieces;
+        knight_moves &= !info.same_pieces;
 
-        while !regular_moves.is_empty() {
-            let to = regular_moves.pop_first_square();
-            let mut m = Move::new(from, to, Piece::Knight);
+        while !knight_moves.is_empty() {
+            let to = knight_moves.pop_first_square();
+            let mut m = Move::new(knight_square, to, Piece::Knight);
 
             // if an opposing piece is on this square, add a capture flag to it
             if let Some(piece) = info.piece_list[to as usize] {
@@ -321,36 +271,34 @@ impl MoveGenerator {
     // From this, we have a bitboard that contains moves that are either quiet or captures
     fn generate_sliding_moves(
         &self,
-        piece_position: Bitboard,
+        piece_square: Square,
         piece: Piece,
         info: &MoveGenBoardInfo,
     ) -> Vec<Move> {
         // get the square this bishop is on to index attack direction arrays
         let mut moves: Vec<Move> = Vec::new();
-        let from = piece_position.get_first_square();
-        let piece_square = from as usize;
 
         let mut regular_moves = Bitboard::EMPTY;
 
         // TODO - just initially generate these as vectors, they aren't being mutated so accessing isn't any faster
         let attacks = match piece {
-            Piece::Bishop => [self.diagonal_attacks].concat(),
-            Piece::Rook => [self.straight_attacks].concat(),
-            Piece::Queen => [self.diagonal_attacks, self.straight_attacks].concat(),
+            Piece::Bishop => &self.diagonal_attacks,
+            Piece::Rook => &self.straight_attacks,
+            Piece::Queen => &self.all_attacks,
             _ => panic!("Pawn, Knight, or King are not sliding pieces!"),
         };
 
         // go through the directions and attacks associated with each direction
         for (direction, attacks) in attacks {
             // by AND-ing the piece's attack with all pieces, we get the pieces that block this attack
-            let blocker_board = attacks[piece_square] & info.all_pieces;
+            let blocker_board = attacks[piece_square as usize] & info.all_pieces;
 
             let clipped_attack = if blocker_board.is_empty() {
                 // if there are no pieces blocking, then the entire attack direction is kept
-                attacks[piece_square]
+                attacks[piece_square as usize]
             } else {
                 // else, find the first piece in the blocking direction
-                let first_blocker = if direction > 0 {
+                let first_blocker = if *direction > 0 {
                     // if the direction is southward, the first piece will be closest to the MSB
                     blocker_board.get_first_square()
                 } else {
@@ -359,7 +307,7 @@ impl MoveGenerator {
                 } as usize;
 
                 // finally, XOR the attack with the same direction attack from this first blocker to clip it off after the blocker
-                attacks[piece_square] ^ attacks[first_blocker]
+                attacks[piece_square as usize] ^ attacks[first_blocker]
             };
 
             // add this attack direction to the moves bitboard
@@ -373,7 +321,7 @@ impl MoveGenerator {
         // now go through and add moves to vector
         while !regular_moves.is_empty() {
             let to = regular_moves.pop_first_square();
-            let mut m = Move::new(from, to, piece);
+            let mut m = Move::new(piece_square, to, piece);
 
             // if an opposing piece is on this square, add a capture flag to it
             if let Some(piece) = info.piece_list[to as usize] {
