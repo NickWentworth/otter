@@ -1,12 +1,12 @@
+use crate::{
+    move_generator::{Move, MoveFlag},
+    types::{Bitboard, Color, Piece, Square, NUM_COLORS, NUM_PIECES},
+};
 use std::fmt::Display;
 
-use crate::{
-    bitboard::{Bitboard, Square},
-    fen::{check_valid_fen, DEFAULT_FEN},
-    move_generator::{Move, MoveFlag},
-    types::{Color, Piece, NUM_COLORS, NUM_PIECES},
-    utility::square_from_algebraic,
-};
+mod fen;
+
+use fen::{check_valid_fen, DEFAULT_FEN};
 
 /// Variables related to conditions of the game
 struct GameState {
@@ -391,4 +391,33 @@ impl Display for Board {
         // and write to the formatter
         write!(f, "{}", output)
     }
+}
+
+/// Tries to convert an algebraic notation string (ex: "b4") to a `Square` on the board, returning an option
+fn square_from_algebraic(algebraic: &String) -> Option<Square> {
+    let file: Square = match algebraic.chars().nth(0)? {
+        'a' => 0,
+        'b' => 1,
+        'c' => 2,
+        'd' => 3,
+        'e' => 4,
+        'f' => 5,
+        'g' => 6,
+        'h' => 7,
+        _ => return None,
+    };
+
+    let rank: Square = match algebraic.chars().nth(1)? {
+        '8' => 0,
+        '7' => 1,
+        '6' => 2,
+        '5' => 3,
+        '4' => 4,
+        '3' => 5,
+        '2' => 6,
+        '1' => 7,
+        _ => return None,
+    };
+
+    Some((rank * 8) + file)
 }

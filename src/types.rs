@@ -1,5 +1,9 @@
-use crate::bitboard::Bitboard;
 use std::ops::{Index, IndexMut};
+
+#[derive(Clone, Copy, PartialEq)]
+pub struct Bitboard(pub u64);
+
+pub type Square = u8;
 
 /// Adds `Index` and `IndexMut` traits so that bitboard arrays can be indexed by enums
 macro_rules! index_traits {

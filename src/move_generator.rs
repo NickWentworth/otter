@@ -1,67 +1,15 @@
-use crate::bitboard::{Bitboard, Square};
-use crate::board::{Board, MoveGenBoardInfo};
-use crate::types::{Color, Piece};
-use crate::utility::{CastleMask, FileBoundMask, RankPositionMask};
+use crate::{
+    board::{Board, MoveGenBoardInfo},
+    types::{Bitboard, Color, Piece, Square},
+};
 
-#[derive(Clone, Copy, Debug)]
-pub enum MoveFlag {
-    Quiet,                          // nothing special, regular move that doesn't have any flags
-    Capture(Piece),                 // opponent piece that was captured
-    Promotion(Piece),               // pawn was promoted into a piece
-    CapturePromotion(Piece, Piece), // opponent piece that was captured as well as the piece promoted into
-    PawnDoubleMove(Square),         // pawn double moved and stores the en passant square
-    EnPassantCapture(Square),       // holds the square of the captured (just en passant-ed) pawn
-    KingCastle,                     // kingside castle
-    QueenCastle,                    // queenside castle
-}
+mod direction;
+mod masks;
+mod moves;
 
-/// Describes a move on the board and information related to that move
-#[derive(Debug)]
-pub struct Move {
-    pub from: Square,
-    pub to: Square,
-    pub piece: Piece,
-    pub flag: MoveFlag,
-}
-
-impl Move {
-    pub fn new(from: Square, to: Square, piece: Piece) -> Move {
-        Move {
-            from,
-            to,
-            piece,
-            flag: MoveFlag::Quiet,
-        }
-    }
-
-    pub fn new_with_flag(from: Square, to: Square, piece: Piece, flag: MoveFlag) -> Move {
-        Move {
-            from,
-            to,
-            piece,
-            flag,
-        }
-    }
-
-    pub fn set_flag(&mut self, flag: MoveFlag) {
-        self.flag = flag;
-    }
-}
-
-struct Direction;
-impl Direction {
-    const N: isize = -8;
-    const E: isize = 1;
-    const S: isize = 8;
-    const W: isize = -1;
-    const NE: isize = Self::N + Self::E;
-    const NW: isize = Self::N + Self::W;
-    const SE: isize = Self::S + Self::E;
-    const SW: isize = Self::S + Self::W;
-
-    const DIAGONALS: [isize; 4] = [Self::NE, Self::NW, Self::SE, Self::SW];
-    const STRAIGHTS: [isize; 4] = [Self::N, Self::E, Self::S, Self::W];
-}
+use direction::Direction;
+use masks::{CastleMask, FileBoundMask, RankPositionMask};
+pub use moves::{Move, MoveFlag};
 
 type DirectionAttackPair = (isize, [Bitboard; 64]);
 
