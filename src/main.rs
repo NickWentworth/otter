@@ -1,4 +1,3 @@
-mod bitboard;
 mod board;
 mod move_generator;
 mod types;
