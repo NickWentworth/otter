@@ -150,7 +150,11 @@ impl Board {
             // need to remove the opposing color's piece
             Capture(captured_piece) => {
                 self.colors[moving_color.opposite()].set_bit_at(m.to, false);
+
+                // only set captured piece bit false if it is different than the moving piece, else both pieces will disappear
+                // if m.piece != captured_piece {
                 self.pieces[captured_piece].set_bit_at(m.to, false);
+                // }
             }
 
             // combination of capture and promotion
@@ -161,7 +165,11 @@ impl Board {
 
                 // do capture changes
                 self.colors[moving_color.opposite()].set_bit_at(m.to, false);
-                self.pieces[captured_piece].set_bit_at(m.to, false);
+
+                // same as capture flag, don't want both pieces to disappear if capturing the same piece that is being promoted to
+                if captured_piece != promoted_piece {
+                    self.pieces[captured_piece].set_bit_at(m.to, false);
+                }
             }
 
             // set the en passant square later on
