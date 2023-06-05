@@ -225,7 +225,7 @@ impl MoveGenerator {
             let captured_piece = info.piece_list[to as usize].unwrap();
 
             // check if this is a promotion rank here as well
-            if (forward_move & RankPositionMask::PROMOTION).is_empty() {
+            if (Bitboard::shifted_board(to) & RankPositionMask::PROMOTION).is_empty() {
                 // if it isn't, just add a regular attack move in
                 moves.push(Move::new_with_flag(
                     from,
