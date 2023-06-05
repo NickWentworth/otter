@@ -34,14 +34,23 @@ pub enum Piece {
     Queen,
     King,
 }
-pub const NUM_PIECES: usize = 6;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Color {
     White,
     Black,
 }
+
+// -------------------- CONSTS -------------------- //
+
+pub const BOARD_SIZE: usize = 64;
+
+pub const NUM_PIECES: usize = 6;
 pub const NUM_COLORS: usize = 2;
+
+use Piece::*;
+pub const ALL_PIECES: [Piece; NUM_PIECES] = [Pawn, Knight, Bishop, Rook, Queen, King];
+pub const PROMOTION_PIECES: [Piece; 4] = [Knight, Bishop, Rook, Queen];
 
 // -------------------- IMPLS -------------------- //
 

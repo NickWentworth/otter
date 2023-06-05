@@ -1,6 +1,6 @@
 use crate::{
     board::{Board, MoveGenBoardInfo},
-    types::{Bitboard, Color, Piece, Square},
+    types::{Bitboard, Color, Piece, Square, ALL_PIECES, BOARD_SIZE, PROMOTION_PIECES},
 };
 use std::collections::HashMap;
 
@@ -15,13 +15,13 @@ use direction::{
 use masks::{CastleMask, FileBoundMask, RankPositionMask};
 pub use moves::{Move, MoveFlag};
 
-type DirectionAttackPair = (isize, [Bitboard; 64]);
+type DirectionAttackPair = (isize, [Bitboard; BOARD_SIZE]);
 
 pub struct MoveGenerator {
     // simple move lookup boards
-    king_moves: [Bitboard; 64],
-    knight_moves: [Bitboard; 64],
-    pawn_attacks: HashMap<Color, [Bitboard; 64]>,
+    king_moves: [Bitboard; BOARD_SIZE],
+    knight_moves: [Bitboard; BOARD_SIZE],
+    pawn_attacks: HashMap<Color, [Bitboard; BOARD_SIZE]>,
 
     // sliding move lookup boards
     diagonal_attacks: Vec<DirectionAttackPair>,
@@ -62,7 +62,7 @@ impl MoveGenerator {
         let info = board.get_board_info();
 
         // iterate through each type of piece
-        for piece in [Pawn, Knight, Bishop, Rook, Queen, King] {
+        for piece in ALL_PIECES {
             // get the bitboard representing the pieces that can move of this type
             let mut pieces_board = board.active_piece_board(piece);
 
@@ -191,7 +191,7 @@ impl MoveGenerator {
                 ))
             } else {
                 // else, go through all promotion pieces and add them in
-                for promotion_piece in [Piece::Knight, Piece::Bishop, Piece::Rook, Piece::Queen] {
+                for promotion_piece in PROMOTION_PIECES {
                     moves.push(Move::new_with_flag(
                         from,
                         forward_move.get_first_square(),

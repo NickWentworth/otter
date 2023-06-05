@@ -1,6 +1,6 @@
 use crate::{
     move_generator::{Move, MoveFlag},
-    types::{Bitboard, Color, Piece, Square, NUM_COLORS, NUM_PIECES},
+    types::{Bitboard, Color, Piece, Square, ALL_PIECES, BOARD_SIZE, NUM_COLORS, NUM_PIECES},
 };
 use std::fmt::Display;
 
@@ -39,7 +39,7 @@ pub struct MoveGenBoardInfo {
     pub king_castle_rights: bool,
     pub queen_castle_rights: bool,
 
-    pub piece_list: [Option<Piece>; 64],
+    pub piece_list: [Option<Piece>; BOARD_SIZE],
 }
 
 impl Board {
@@ -282,11 +282,10 @@ impl Board {
     /// Generates a piece list, containing (if there exists) the piece at every square
     ///
     /// Useful when we have an index of a square and want to know the piece it exists at
-    fn get_piece_list(&self) -> [Option<Piece>; 64] {
-        use Piece::*;
-        let mut list: [Option<Piece>; 64] = [None; 64];
+    fn get_piece_list(&self) -> [Option<Piece>; BOARD_SIZE] {
+        let mut list = [None; BOARD_SIZE];
 
-        for piece in [Pawn, Knight, Bishop, Rook, Queen, King] {
+        for piece in ALL_PIECES {
             let mut piece_board = self.pieces[piece].clone();
 
             while !piece_board.is_empty() {
@@ -303,10 +302,10 @@ impl Display for Board {
         use Color::*;
         use Piece::*;
 
-        let mut chars = ['.'; 64];
+        let mut chars = ['.'; BOARD_SIZE];
 
         // generate array of characters representing pieces
-        for piece in [Pawn, Knight, Bishop, Rook, Queen, King] {
+        for piece in ALL_PIECES {
             let mut piece_board = self.pieces[piece];
 
             while !piece_board.is_empty() {

@@ -1,4 +1,4 @@
-use crate::types::{Bitboard, Color, Square};
+use crate::types::{Bitboard, Color, Square, BOARD_SIZE};
 use std::collections::HashMap;
 
 use super::masks::FileBoundMask;
@@ -20,8 +20,8 @@ impl Direction {
 }
 
 /// Generates a lookup table all king moves at each square
-pub fn generate_king_moves() -> [Bitboard; 64] {
-    let mut boards: [Bitboard; 64] = [Bitboard::EMPTY; 64];
+pub fn generate_king_moves() -> [Bitboard; BOARD_SIZE] {
+    let mut boards = [Bitboard::EMPTY; BOARD_SIZE];
 
     for (square, board) in boards.iter_mut().enumerate() {
         // generate position and masked position bitboards
@@ -49,8 +49,8 @@ pub fn generate_king_moves() -> [Bitboard; 64] {
 }
 
 /// Generates a lookup table for knight moves at each square
-pub fn generate_knight_moves() -> [Bitboard; 64] {
-    let mut boards: [Bitboard; 64] = [Bitboard::EMPTY; 64];
+pub fn generate_knight_moves() -> [Bitboard; BOARD_SIZE] {
+    let mut boards = [Bitboard::EMPTY; BOARD_SIZE];
 
     for (square, board) in boards.iter_mut().enumerate() {
         // generate position and masked position bitboards
@@ -82,9 +82,9 @@ pub fn generate_knight_moves() -> [Bitboard; 64] {
 }
 
 /// Generates a lookup table for pawn moves at each square, indexed by color
-pub fn generate_pawn_attacks() -> HashMap<Color, [Bitboard; 64]> {
-    let mut white_boards = [Bitboard::EMPTY; 64];
-    let mut black_boards = [Bitboard::EMPTY; 64];
+pub fn generate_pawn_attacks() -> HashMap<Color, [Bitboard; BOARD_SIZE]> {
+    let mut white_boards = [Bitboard::EMPTY; BOARD_SIZE];
+    let mut black_boards = [Bitboard::EMPTY; BOARD_SIZE];
 
     for (square, (white_board, black_board)) in
         white_boards.iter_mut().zip(&mut black_boards).enumerate()
@@ -116,8 +116,8 @@ pub fn generate_pawn_attacks() -> HashMap<Color, [Bitboard; 64]> {
 }
 
 /// Generates a lookup table for the attack ray in a given direction (for sliding pieces )
-pub fn generate_sliding_attacks(direction: isize) -> [Bitboard; 64] {
-    let mut boards: [Bitboard; 64] = [Bitboard::EMPTY; 64];
+pub fn generate_sliding_attacks(direction: isize) -> [Bitboard; BOARD_SIZE] {
+    let mut boards = [Bitboard::EMPTY; BOARD_SIZE];
 
     for (square, board) in boards.iter_mut().enumerate() {
         // idea is to do the shift and see if we went over the bounds of the files
