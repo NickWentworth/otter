@@ -36,7 +36,7 @@ pub enum Piece {
 }
 pub const NUM_PIECES: usize = 6;
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Color {
     White,
     Black,

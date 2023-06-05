@@ -1,4 +1,5 @@
-use crate::types::{Bitboard, Square};
+use crate::types::{Bitboard, Color, Square};
+use std::collections::HashMap;
 
 use super::masks::FileBoundMask;
 
@@ -80,9 +81,38 @@ pub fn generate_knight_moves() -> [Bitboard; 64] {
     boards
 }
 
-/// Generates all pawn moves at each square
-pub fn generate_pawn_moves() -> [Bitboard; 64] {
-    todo!()
+/// Generates a lookup table for pawn moves at each square, indexed by color
+pub fn generate_pawn_attacks() -> HashMap<Color, [Bitboard; 64]> {
+    let mut white_boards = [Bitboard::EMPTY; 64];
+    let mut black_boards = [Bitboard::EMPTY; 64];
+
+    for (square, (white_board, black_board)) in
+        white_boards.iter_mut().zip(&mut black_boards).enumerate()
+    {
+        // generate position and masked position bitboards
+        let pawn_position = Bitboard::shifted_board(square as Square);
+        let pawn_position_a_file_masked = pawn_position & FileBoundMask::A;
+        let pawn_position_h_file_masked = pawn_position & FileBoundMask::H;
+
+        // board move representation:
+        // white:       black:
+        // .  .  .      . (P) .
+        // 1  .  2      1  .  2
+        // . (P) .      .  .  .
+
+        // generate moves by shifting in each attacking direction (per color)
+        *white_board |= pawn_position_a_file_masked >> Direction::NW;
+        *white_board |= pawn_position_h_file_masked >> Direction::NE;
+
+        *black_board |= pawn_position_a_file_masked >> Direction::SW;
+        *black_board |= pawn_position_h_file_masked >> Direction::SE;
+    }
+
+    // build hashmap so we can index it by color
+    let mut h = HashMap::new();
+    h.insert(Color::White, white_boards);
+    h.insert(Color::Black, black_boards);
+    h
 }
 
 /// Generates a lookup table for the attack ray in a given direction (for sliding pieces )

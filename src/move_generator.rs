@@ -2,12 +2,16 @@ use crate::{
     board::{Board, MoveGenBoardInfo},
     types::{Bitboard, Color, Piece, Square},
 };
+use std::collections::HashMap;
 
 mod direction;
 mod masks;
 mod moves;
 
-use direction::{generate_king_moves, generate_knight_moves, generate_sliding_attacks, Direction};
+use direction::{
+    generate_king_moves, generate_knight_moves, generate_pawn_attacks, generate_sliding_attacks,
+    Direction,
+};
 use masks::{CastleMask, FileBoundMask, RankPositionMask};
 pub use moves::{Move, MoveFlag};
 
@@ -17,7 +21,7 @@ pub struct MoveGenerator {
     // simple move lookup boards
     king_moves: [Bitboard; 64],
     knight_moves: [Bitboard; 64],
-    // TODO - see if pawn moves can be generated too
+    pawn_attacks: HashMap<Color, [Bitboard; 64]>,
 
     // sliding move lookup boards
     diagonal_attacks: Vec<DirectionAttackPair>,
@@ -30,6 +34,7 @@ impl MoveGenerator {
         MoveGenerator {
             king_moves: generate_king_moves(),
             knight_moves: generate_knight_moves(),
+            pawn_attacks: generate_pawn_attacks(),
 
             diagonal_attacks: Direction::DIAGONALS
                 .map(|direction| (direction, generate_sliding_attacks(direction)))
@@ -72,7 +77,7 @@ impl MoveGenerator {
                     // regular moving pieces
                     King => self.generate_king_moves(piece_square, &info),
                     Knight => self.generate_knight_moves(piece_square, &info),
-                    Pawn => Self::generate_pawn_moves(piece_position, &info),
+                    Pawn => self.generate_pawn_moves(piece_position, &info),
 
                     // sliding pieces
                     Bishop | Rook | Queen => {
@@ -157,7 +162,7 @@ impl MoveGenerator {
         moves
     }
 
-    fn generate_pawn_moves(pawn_position: Bitboard, info: &MoveGenBoardInfo) -> Vec<Move> {
+    fn generate_pawn_moves(&self, pawn_position: Bitboard, info: &MoveGenBoardInfo) -> Vec<Move> {
         let mut moves: Vec<Move> = Vec::new();
         let from = pawn_position.get_first_square();
 
@@ -208,14 +213,13 @@ impl MoveGenerator {
             ))
         }
 
-        // check for attacks in diagonal directions
-        let left_attack = (pawn_position & FileBoundMask::A) >> (direction - 1);
-        let right_attack = (pawn_position & FileBoundMask::H) >> (direction + 1);
+        // get the moving color's pawn attacks at this square
+        let attacks = self.pawn_attacks[&info.active_color][from as usize];
 
         // check for regular pawn attacks, not including en passant capture
-        let mut attacks = (left_attack | right_attack) & info.opposing_pieces;
-        while !attacks.is_empty() {
-            let to = attacks.pop_first_square();
+        let mut regular_attacks = attacks & info.opposing_pieces;
+        while !regular_attacks.is_empty() {
+            let to = regular_attacks.pop_first_square();
 
             // cannot be an empty square, safe to unwrap
             let captured_piece = info.piece_list[to as usize].unwrap();
@@ -243,7 +247,7 @@ impl MoveGenerator {
         }
 
         // check for attack on en passant square
-        let en_passant_attack = (left_attack | right_attack) & info.en_passant;
+        let en_passant_attack = attacks & info.en_passant;
         if !en_passant_attack.is_empty() {
             // will just be a single bit, no need to pop from bitboard
             let to = en_passant_attack.get_first_square();
