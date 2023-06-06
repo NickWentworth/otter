@@ -12,7 +12,7 @@ use direction::{
     generate_king_moves, generate_knight_moves, generate_pawn_attacks, generate_sliding_attacks,
     Direction,
 };
-use masks::{CastleMask, FileBoundMask, RankPositionMask};
+use masks::{CastleMask, RankPositionMask};
 pub use moves::{Move, MoveFlag};
 
 type DirectionAttackPair = (isize, [Bitboard; BOARD_SIZE]);
@@ -99,41 +99,43 @@ impl MoveGenerator {
         // cannot move into squares occupied by the same color
         king_moves &= !info.same_pieces;
 
-        // TODO - this is a common pattern in the move generation for different pieces, can likely be turned into a function
+        // generate regular king moves
         while !king_moves.is_empty() {
-            let to = king_moves.pop_first_square();
-            let mut m = Move::new(king_square, to, Piece::King);
+            let to_square = king_moves.pop_first_square();
 
-            // if an opposing piece is on this square, add a capture flag to it
-            if let Some(piece) = info.piece_list[to as usize] {
-                m.set_flag(MoveFlag::Capture(piece));
-            }
-
-            moves.push(m);
+            moves.push(Move {
+                from: king_square,
+                to: to_square,
+                piece: Piece::King,
+                flag: match info.piece_list[to_square as usize] {
+                    Some(piece) => MoveFlag::Capture(piece),
+                    None => MoveFlag::Quiet,
+                },
+            });
         }
 
         // kingside castle check
         if info.king_castle_rights
             && (info.all_pieces & CastleMask::KINGSIDE[info.active_color]).is_empty()
         {
-            moves.push(Move::new_with_flag(
-                king_square,
-                king_square + 2,
-                Piece::King,
-                MoveFlag::KingCastle,
-            ));
+            moves.push(Move {
+                from: king_square,
+                to: king_square + 2,
+                piece: Piece::King,
+                flag: MoveFlag::KingCastle,
+            });
         }
 
         // queenside castle check
         if info.queen_castle_rights
             && (info.all_pieces & CastleMask::QUEENSIDE[info.active_color]).is_empty()
         {
-            moves.push(Move::new_with_flag(
-                king_square,
-                king_square - 2,
-                Piece::King,
-                MoveFlag::QueenCastle,
-            ));
+            moves.push(Move {
+                from: king_square,
+                to: king_square - 2,
+                piece: Piece::King,
+                flag: MoveFlag::QueenCastle,
+            });
         }
 
         moves
@@ -147,16 +149,19 @@ impl MoveGenerator {
         // cannot move into squares occupied by the same color
         knight_moves &= !info.same_pieces;
 
+        // generate knight moves
         while !knight_moves.is_empty() {
-            let to = knight_moves.pop_first_square();
-            let mut m = Move::new(knight_square, to, Piece::Knight);
+            let to_square = knight_moves.pop_first_square();
 
-            // if an opposing piece is on this square, add a capture flag to it
-            if let Some(piece) = info.piece_list[to as usize] {
-                m.set_flag(MoveFlag::Capture(piece));
-            }
-
-            moves.push(m);
+            moves.push(Move {
+                from: knight_square,
+                to: to_square,
+                piece: Piece::Knight,
+                flag: match info.piece_list[to_square as usize] {
+                    Some(piece) => MoveFlag::Capture(piece),
+                    None => MoveFlag::Quiet,
+                },
+            });
         }
 
         moves
@@ -164,7 +169,7 @@ impl MoveGenerator {
 
     fn generate_pawn_moves(&self, pawn_position: Bitboard, info: &MoveGenBoardInfo) -> Vec<Move> {
         let mut moves: Vec<Move> = Vec::new();
-        let from = pawn_position.get_first_square();
+        let from_square = pawn_position.get_first_square();
 
         // board move representation:
         // white:       black:
@@ -182,67 +187,70 @@ impl MoveGenerator {
         let forward_move = (pawn_position >> direction) & info.no_pieces;
         if !forward_move.is_empty() {
             // check to see if the move is a promotion move
-            if (forward_move & RankPositionMask::PROMOTION).is_empty() {
-                // if it isn't, just add a regular forward move in
-                moves.push(Move::new(
-                    from,
-                    forward_move.get_first_square(),
-                    Piece::Pawn,
-                ))
+            let is_promotion = !(forward_move & RankPositionMask::PROMOTION).is_empty();
+
+            if is_promotion {
+                // if it is, go through all promotion pieces and add them in
+                moves.extend(PROMOTION_PIECES.map(|promotion_piece| Move {
+                    from: from_square,
+                    to: forward_move.get_first_square(),
+                    piece: Piece::Pawn,
+                    flag: MoveFlag::Promotion(promotion_piece),
+                }))
             } else {
-                // else, go through all promotion pieces and add them in
-                for promotion_piece in PROMOTION_PIECES {
-                    moves.push(Move::new_with_flag(
-                        from,
-                        forward_move.get_first_square(),
-                        Piece::Pawn,
-                        MoveFlag::Promotion(promotion_piece),
-                    ))
-                }
+                // if it isn't, just add a regular forward move in
+                moves.push(Move {
+                    from: from_square,
+                    to: forward_move.get_first_square(),
+                    piece: Piece::Pawn,
+                    flag: MoveFlag::Quiet,
+                })
             }
         }
 
         // check for a valid double move (based off of forward move)
         let double_move = ((forward_move & double_move_mask) >> direction) & info.no_pieces;
         if !double_move.is_empty() {
-            moves.push(Move::new_with_flag(
-                from,
-                double_move.get_first_square(),
-                Piece::Pawn,
-                MoveFlag::PawnDoubleMove(forward_move.get_first_square()),
-            ))
+            moves.push(Move {
+                from: from_square,
+                to: double_move.get_first_square(),
+                piece: Piece::Pawn,
+                flag: MoveFlag::PawnDoubleMove(forward_move.get_first_square()),
+            })
         }
 
         // get the moving color's pawn attacks at this square
-        let attacks = self.pawn_attacks[&info.active_color][from as usize];
+        let attacks = self.pawn_attacks[&info.active_color][from_square as usize];
 
         // check for regular pawn attacks, not including en passant capture
         let mut regular_attacks = attacks & info.opposing_pieces;
         while !regular_attacks.is_empty() {
-            let to = regular_attacks.pop_first_square();
+            let to_square = regular_attacks.pop_first_square();
 
             // cannot be an empty square, safe to unwrap
-            let captured_piece = info.piece_list[to as usize].unwrap();
+            let captured_piece = info.piece_list[to_square as usize].unwrap();
+
+            // again check if this is a promotion move
+            let is_promotion =
+                !(Bitboard::shifted_board(to_square) & RankPositionMask::PROMOTION).is_empty();
 
             // check if this is a promotion rank here as well
-            if (Bitboard::shifted_board(to) & RankPositionMask::PROMOTION).is_empty() {
-                // if it isn't, just add a regular attack move in
-                moves.push(Move::new_with_flag(
-                    from,
-                    to,
-                    Piece::Pawn,
-                    MoveFlag::Capture(captured_piece),
-                ))
+            if is_promotion {
+                // if it is, go through all promotion pieces and add them in as promotion attacks
+                moves.extend(PROMOTION_PIECES.map(|promotion_piece| Move {
+                    from: from_square,
+                    to: to_square,
+                    piece: Piece::Pawn,
+                    flag: MoveFlag::CapturePromotion(captured_piece, promotion_piece),
+                }))
             } else {
-                // else, go through all promotion pieces and add them in as promotion attacks
-                for promotion_piece in [Piece::Knight, Piece::Bishop, Piece::Rook, Piece::Queen] {
-                    moves.push(Move::new_with_flag(
-                        from,
-                        to,
-                        Piece::Pawn,
-                        MoveFlag::CapturePromotion(captured_piece, promotion_piece),
-                    ))
-                }
+                // if it isn't, just add a regular attack move in
+                moves.push(Move {
+                    from: from_square,
+                    to: to_square,
+                    piece: Piece::Pawn,
+                    flag: MoveFlag::Capture(captured_piece),
+                })
             }
         }
 
@@ -250,16 +258,17 @@ impl MoveGenerator {
         let en_passant_attack = attacks & info.en_passant;
         if !en_passant_attack.is_empty() {
             // will just be a single bit, no need to pop from bitboard
-            let to = en_passant_attack.get_first_square();
+            let to_square = en_passant_attack.get_first_square();
 
             // opposing piece is located one square away from the attack in the opposite direction of this pawn's movement
-            let opposing_piece_square = ((to as isize) - direction) as Square;
-            moves.push(Move::new_with_flag(
-                from,
-                to,
-                Piece::Pawn,
-                MoveFlag::EnPassantCapture(opposing_piece_square),
-            ))
+            let opposing_piece_square = ((to_square as isize) - direction) as Square;
+
+            moves.push(Move {
+                from: from_square,
+                to: to_square,
+                piece: Piece::Pawn,
+                flag: MoveFlag::EnPassantCapture(opposing_piece_square),
+            })
         }
 
         moves
@@ -284,7 +293,6 @@ impl MoveGenerator {
 
         let mut regular_moves = Bitboard::EMPTY;
 
-        // TODO - just initially generate these as vectors, they aren't being mutated so accessing isn't any faster
         let attacks = match piece {
             Piece::Bishop => &self.diagonal_attacks,
             Piece::Rook => &self.straight_attacks,
@@ -324,15 +332,17 @@ impl MoveGenerator {
 
         // now go through and add moves to vector
         while !regular_moves.is_empty() {
-            let to = regular_moves.pop_first_square();
-            let mut m = Move::new(piece_square, to, piece);
+            let to_square = regular_moves.pop_first_square();
 
-            // if an opposing piece is on this square, add a capture flag to it
-            if let Some(piece) = info.piece_list[to as usize] {
-                m.set_flag(MoveFlag::Capture(piece));
-            }
-
-            moves.push(m);
+            moves.push(Move {
+                from: piece_square,
+                to: to_square,
+                piece,
+                flag: match info.piece_list[to_square as usize] {
+                    Some(captured_piece) => MoveFlag::Capture(captured_piece),
+                    None => MoveFlag::Quiet,
+                },
+            })
         }
 
         moves

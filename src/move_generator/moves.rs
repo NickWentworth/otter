@@ -20,27 +20,3 @@ pub struct Move {
     pub piece: Piece,
     pub flag: MoveFlag,
 }
-
-impl Move {
-    pub fn new(from: Square, to: Square, piece: Piece) -> Move {
-        Move {
-            from,
-            to,
-            piece,
-            flag: MoveFlag::Quiet,
-        }
-    }
-
-    pub fn new_with_flag(from: Square, to: Square, piece: Piece, flag: MoveFlag) -> Move {
-        Move {
-            from,
-            to,
-            piece,
-            flag,
-        }
-    }
-
-    pub fn set_flag(&mut self, flag: MoveFlag) {
-        self.flag = flag;
-    }
-}
