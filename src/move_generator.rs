@@ -51,43 +51,155 @@ impl MoveGenerator {
     }
 
     /// Generates a `Vec<Move>` containing all valid moves, given a board state
-    ///
-    /// Currently just pseudo-legal moves, checks are not considered
     pub fn generate_moves(&self, board: &Board) -> Vec<Move> {
         use Piece::*;
 
         let mut moves: Vec<Move> = Vec::new();
 
-        // fetch these once instead of generating for every piece
+        // different variables representing the current board state for use in generating moves
         let info = board.get_board_info();
 
-        // iterate through each type of piece
-        for piece in ALL_PIECES {
-            // get the bitboard representing the pieces that can move of this type
-            let mut pieces_board = board.active_piece_board(piece);
+        // first, see if the king is currently in check and by how many pieces
+        // to do this, we pretend the king's square is every other piece and see the opposing pieces it would attack
+        // this allows us to accurately find all pieces attacking the king and get a count of how many pieces check it
+        let mut attackers = Bitboard::EMPTY;
 
-            // go through each position that this piece occurs in and pop it from the pieces bitboard
-            while !pieces_board.is_empty() {
-                let piece_square = pieces_board.pop_first_square();
-                let piece_position = Bitboard::shifted_board(piece_square);
+        let king_position = board.active_piece_board(King);
+        let king_square = king_position.get_first_square() as usize;
 
-                // TODO - test if adding to a pre-allocated move buffer is better than this method of extending vectors
-                // and generate the moves for that piece
-                moves.extend(match piece {
-                    // regular moving pieces
-                    King => self.generate_king_moves(piece_square, &info),
-                    Knight => self.generate_knight_moves(piece_square, &info),
-                    Pawn => self.generate_pawn_moves(piece_position, &info),
+        // get all attackers of the currently moving king
+        attackers |= self.generate_sliding_attack_bitboard(king_square, Bishop, info.all_pieces)
+            & board.inactive_piece_board(Bishop);
+        attackers |= self.generate_sliding_attack_bitboard(king_square, Rook, info.all_pieces)
+            & board.inactive_piece_board(Rook);
+        attackers |= self.generate_sliding_attack_bitboard(king_square, Queen, info.all_pieces)
+            & board.inactive_piece_board(Queen);
+        attackers |= self.knight_moves[king_square] & board.inactive_piece_board(Knight);
+        attackers |=
+            self.pawn_attacks[&info.active_color][king_square] & board.inactive_piece_board(Pawn);
 
-                    // sliding pieces
-                    Bishop | Rook | Queen => {
-                        self.generate_sliding_moves(piece_square, piece, &info)
+        // cases of different checks
+        match attackers.count_bits() {
+            // king not in check, generate moves as usual
+            0 => {
+                let mut active_pieces = info.same_pieces;
+                while !active_pieces.is_empty() {
+                    let from_square = active_pieces.pop_first_square();
+                    let piece = info.piece_list[from_square as usize].unwrap(); // should be a piece here, safe to unwrap
+
+                    let mut regular_moves = match piece {
+                        King => {
+                            // king cannot move into an attacked square
+                            self.king_moves[from_square as usize]
+                                & self.get_safe_king_squares(&info, from_square)
+                        }
+
+                        // TODO - handle pinned pieces
+                        Knight => self.knight_moves[from_square as usize],
+
+                        Pawn => self.pawn_attacks[&info.active_color][from_square as usize],
+
+                        Bishop | Rook | Queen => self.generate_sliding_attack_bitboard(
+                            from_square as usize,
+                            piece,
+                            info.all_pieces,
+                        ),
+                    };
+
+                    // cannot move into a square of the same color
+                    regular_moves &= !info.same_pieces;
+
+                    // go through each move and add it as either a capture or quiet move
+                    while !regular_moves.is_empty() {
+                        let to_square = regular_moves.pop_first_square();
+
+                        moves.push(Move {
+                            from: from_square,
+                            to: to_square,
+                            piece,
+                            flag: match info.piece_list[to_square as usize] {
+                                // TODO - pawn capture can be a promotion in this case
+                                Some(captured_piece) => MoveFlag::Capture(captured_piece),
+                                None => MoveFlag::Quiet,
+                            },
+                        })
                     }
-                })
+                }
+
+                // TODO - other special moves (pawn pushes, castling)
             }
+
+            // TODO - king is in check by one piece
+            1 => todo!("implement single check"),
+
+            // TODO - double check, only possible moves are king moves
+            2 => todo!("implement double check"),
+
+            // shouldn't be a case with 3+ pieces checking the king
+            _ => panic!(),
         }
 
+        // // iterate through each type of piece
+        // for piece in ALL_PIECES {
+        //     // get the bitboard representing the pieces that can move of this type
+        //     let mut pieces_board = board.active_piece_board(piece);
+
+        //     // go through each position that this piece occurs in and pop it from the pieces bitboard
+        //     while !pieces_board.is_empty() {
+        //         let piece_square = pieces_board.pop_first_square();
+        //         let piece_position = Bitboard::shifted_board(piece_square);
+
+        //         // TODO - test if adding to a pre-allocated move buffer is better than this method of extending vectors
+        //         // and generate the moves for that piece
+        //         moves.extend(match piece {
+        //             // regular moving pieces
+        //             King => self.generate_king_moves(piece_square, &info),
+        //             Knight => self.generate_knight_moves(piece_square, &info),
+        //             Pawn => self.generate_pawn_moves(piece_position, &info),
+
+        //             // sliding pieces
+        //             Bishop | Rook | Queen => {
+        //                 self.generate_sliding_moves(piece_square, piece, &info)
+        //             }
+        //         })
+        //     }
+        // }
+
         moves
+    }
+
+    /// Given a board info, generates a board of all attacked squares that are unsafe for king to move into
+    fn get_safe_king_squares(&self, info: &MoveGenBoardInfo, king_square: Square) -> Bitboard {
+        use Piece::*;
+        let mut attack_board = Bitboard::EMPTY;
+
+        let mut opposing_pieces = info.opposing_pieces;
+        let king_position = Bitboard::shifted_board(king_square);
+
+        // go through all opposing pieces, popping one from the bitboard each iteration
+        while !opposing_pieces.is_empty() {
+            let square = opposing_pieces.pop_first_square() as usize;
+            let piece = info.piece_list[square].unwrap();
+
+            let current_piece_attack = match piece {
+                King => self.king_moves[square],
+                Knight => self.knight_moves[square],
+                Pawn => self.pawn_attacks[&info.inactive_color][square],
+
+                // importantly, the king square is not taken into account in the attacked square generation
+                // this is because if the king is attacked by a sliding piece, it should not be able to move backwards further into the piece's attack range
+                // to fix this, the king square can be omitted and things will work as expected
+                Rook | Bishop | Queen => self.generate_sliding_attack_bitboard(
+                    square,
+                    piece,
+                    info.all_pieces & !king_position,
+                ),
+            };
+
+            attack_board |= current_piece_attack;
+        }
+
+        !attack_board
     }
 
     // TODO - prevent king from moving/castling into attacks
@@ -291,40 +403,9 @@ impl MoveGenerator {
         // get the square this bishop is on to index attack direction arrays
         let mut moves: Vec<Move> = Vec::new();
 
-        let mut regular_moves = Bitboard::EMPTY;
-
-        let attacks = match piece {
-            Piece::Bishop => &self.diagonal_attacks,
-            Piece::Rook => &self.straight_attacks,
-            Piece::Queen => &self.all_attacks,
-            _ => panic!("Pawn, Knight, or King are not sliding pieces!"),
-        };
-
-        // go through the directions and attacks associated with each direction
-        for (direction, attacks) in attacks {
-            // by AND-ing the piece's attack with all pieces, we get the pieces that block this attack
-            let blocker_board = attacks[piece_square as usize] & info.all_pieces;
-
-            let clipped_attack = if blocker_board.is_empty() {
-                // if there are no pieces blocking, then the entire attack direction is kept
-                attacks[piece_square as usize]
-            } else {
-                // else, find the first piece in the blocking direction
-                let first_blocker = if *direction > 0 {
-                    // if the direction is southward, the first piece will be closest to the MSB
-                    blocker_board.get_first_square()
-                } else {
-                    // else the first piece will be closest to the LSB (and subtract 63 because we need it in terms of MSB, not LSB)
-                    blocker_board.get_last_square()
-                } as usize;
-
-                // finally, XOR the attack with the same direction attack from this first blocker to clip it off after the blocker
-                attacks[piece_square as usize] ^ attacks[first_blocker]
-            };
-
-            // add this attack direction to the moves bitboard
-            regular_moves |= clipped_attack;
-        }
+        // build the bitboard properly clipped wherever there is a blocker
+        let mut regular_moves =
+            self.generate_sliding_attack_bitboard(piece_square as usize, piece, info.all_pieces);
 
         // since all pieces are used to find blockers, this bishop may be attacking a same-color piece
         // this AND will take the possibly invalid final move in the slide and see if it shares a space with a piece of the same color
@@ -343,6 +424,53 @@ impl MoveGenerator {
                     None => MoveFlag::Quiet,
                 },
             })
+        }
+
+        moves
+    }
+
+    /// Helper function that generates the attacked square bitboard for a given sliding piece at a square
+    ///
+    /// Does not remove the same color pieces being defended, but does clip them properly as expected
+    fn generate_sliding_attack_bitboard(
+        &self,
+        piece_square: usize,
+        piece: Piece,
+        blockers: Bitboard,
+    ) -> Bitboard {
+        let mut moves = Bitboard::EMPTY;
+
+        let attacks = match piece {
+            Piece::Bishop => &self.diagonal_attacks,
+            Piece::Rook => &self.straight_attacks,
+            Piece::Queen => &self.all_attacks,
+            _ => panic!("Pawn, Knight, or King are not sliding pieces!"),
+        };
+
+        // go through the directions and attacks associated with each direction
+        for (direction, attacks) in attacks {
+            // by AND-ing the piece's attack with all pieces, we get the pieces that block this attack
+            let blocker_board = attacks[piece_square] & blockers;
+
+            let clipped_attack = if blocker_board.is_empty() {
+                // if there are no pieces blocking, then the entire attack direction is kept
+                attacks[piece_square]
+            } else {
+                // else, find the first piece in the blocking direction
+                let first_blocker = if *direction > 0 {
+                    // if the direction is southward, the first piece will be closest to the MSB
+                    blocker_board.get_first_square()
+                } else {
+                    // else the first piece will be closest to the LSB (and subtract 63 because we need it in terms of MSB, not LSB)
+                    blocker_board.get_last_square()
+                } as usize;
+
+                // finally, XOR the attack with the same direction attack from this first blocker to clip it off after the blocker
+                attacks[piece_square] ^ attacks[first_blocker]
+            };
+
+            // add this attack direction to the moves bitboard
+            moves |= clipped_attack;
         }
 
         moves

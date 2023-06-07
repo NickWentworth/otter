@@ -287,6 +287,11 @@ impl Board {
         self.pieces[piece] & self.colors[self.game_state.current_turn]
     }
 
+    /// Generates a bitboard of pieces matching the given type that cannot move this turn
+    pub fn inactive_piece_board(&self, piece: Piece) -> Bitboard {
+        self.pieces[piece] & self.colors[self.game_state.current_turn.opposite()]
+    }
+
     /// Generates a piece list, containing (if there exists) the piece at every square
     ///
     /// Useful when we have an index of a square and want to know the piece it exists at

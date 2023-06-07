@@ -103,6 +103,19 @@ impl Bitboard {
         *self ^= Self::shifted_board(square);
         square
     }
+
+    /// Counts the number of 1 bits in the given bitboard
+    pub fn count_bits(self) -> usize {
+        let mut copy = self;
+        let mut count = 0;
+
+        while !copy.is_empty() {
+            copy.pop_first_square();
+            count += 1;
+        }
+
+        count
+    }
 }
 
 impl Display for Bitboard {
