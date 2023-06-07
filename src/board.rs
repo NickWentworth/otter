@@ -302,7 +302,7 @@ impl Board {
             let mut piece_board = self.pieces[piece].clone();
 
             while !piece_board.is_empty() {
-                list[piece_board.pop_first_square() as usize] = Some(piece);
+                list[piece_board.pop_first_square()] = Some(piece);
             }
         }
 
@@ -326,7 +326,7 @@ impl Display for Board {
                 let position = Bitboard::shifted_board(square);
 
                 // match the character at this square to a piece on the board
-                chars[square as usize] = match piece {
+                chars[square] = match piece {
                     Pawn => 'P',
                     Knight => 'N',
                     Bishop => 'B',
@@ -337,7 +337,7 @@ impl Display for Board {
 
                 // if piece is black, lowercase it
                 if (position & self.colors[White]).is_empty() {
-                    chars[square as usize] = chars[square as usize].to_ascii_lowercase();
+                    chars[square] = chars[square].to_ascii_lowercase();
                 }
             }
         }

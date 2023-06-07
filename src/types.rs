@@ -23,7 +23,8 @@ Bitboard bits to Square values:
 #[derive(Clone, Copy, PartialEq)]
 pub struct Bitboard(pub u64);
 
-pub type Square = u8;
+// although there are only 64 squares, a square is commonly used to index an array so this helps reduce so many casts
+pub type Square = usize;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Piece {

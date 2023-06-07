@@ -25,7 +25,7 @@ pub fn generate_king_moves() -> [Bitboard; BOARD_SIZE] {
 
     for (square, board) in boards.iter_mut().enumerate() {
         // generate position and masked position bitboards
-        let king_position = Bitboard::shifted_board(square as Square);
+        let king_position = Bitboard::shifted_board(square);
         let king_position_a_file_masked = king_position & FileBoundMask::A;
         let king_position_h_file_masked = king_position & FileBoundMask::H;
 
@@ -54,7 +54,7 @@ pub fn generate_knight_moves() -> [Bitboard; BOARD_SIZE] {
 
     for (square, board) in boards.iter_mut().enumerate() {
         // generate position and masked position bitboards
-        let knight_position = Bitboard::shifted_board(square as Square);
+        let knight_position = Bitboard::shifted_board(square);
         let knight_position_a_file_masked = knight_position & FileBoundMask::A;
         let knight_position_h_file_masked = knight_position & FileBoundMask::H;
         let knight_position_ab_file_masked = knight_position_a_file_masked & FileBoundMask::B;
@@ -90,7 +90,7 @@ pub fn generate_pawn_attacks() -> HashMap<Color, [Bitboard; BOARD_SIZE]> {
         white_boards.iter_mut().zip(&mut black_boards).enumerate()
     {
         // generate position and masked position bitboards
-        let pawn_position = Bitboard::shifted_board(square as Square);
+        let pawn_position = Bitboard::shifted_board(square);
         let pawn_position_a_file_masked = pawn_position & FileBoundMask::A;
         let pawn_position_h_file_masked = pawn_position & FileBoundMask::H;
 
@@ -122,7 +122,7 @@ pub fn generate_sliding_attacks(direction: isize) -> [Bitboard; BOARD_SIZE] {
     for (square, board) in boards.iter_mut().enumerate() {
         // idea is to do the shift and see if we went over the bounds of the files
         // meaning one attack is on A file and other is on H
-        let mut attack = Bitboard::shifted_board(square as Square);
+        let mut attack = Bitboard::shifted_board(square);
 
         while !((attack & FileBoundMask::A) | (attack >> direction & FileBoundMask::H)).is_empty()
             && !((attack & FileBoundMask::H) | (attack >> direction & FileBoundMask::A)).is_empty()

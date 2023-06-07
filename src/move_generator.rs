@@ -65,7 +65,7 @@ impl MoveGenerator {
         let mut attackers = Bitboard::EMPTY;
 
         let king_position = board.active_piece_board(King);
-        let king_square = king_position.get_first_square() as usize;
+        let king_square = king_position.get_first_square();
 
         // get all attackers of the currently moving king
         attackers |= self.generate_sliding_attack_bitboard(king_square, Bishop, info.all_pieces)
@@ -85,22 +85,22 @@ impl MoveGenerator {
                 let mut active_pieces = info.same_pieces;
                 while !active_pieces.is_empty() {
                     let from_square = active_pieces.pop_first_square();
-                    let piece = info.piece_list[from_square as usize].unwrap(); // should be a piece here, safe to unwrap
+                    let piece = info.piece_list[from_square].unwrap(); // should be a piece here, safe to unwrap
 
                     let mut regular_moves = match piece {
                         King => {
                             // king cannot move into an attacked square
-                            self.king_moves[from_square as usize]
+                            self.king_moves[from_square]
                                 & self.get_safe_king_squares(&info, from_square)
                         }
 
                         // TODO - handle pinned pieces
-                        Knight => self.knight_moves[from_square as usize],
+                        Knight => self.knight_moves[from_square],
 
-                        Pawn => self.pawn_attacks[&info.active_color][from_square as usize],
+                        Pawn => self.pawn_attacks[&info.active_color][from_square],
 
                         Bishop | Rook | Queen => self.generate_sliding_attack_bitboard(
-                            from_square as usize,
+                            from_square,
                             piece,
                             info.all_pieces,
                         ),
@@ -117,7 +117,7 @@ impl MoveGenerator {
                             from: from_square,
                             to: to_square,
                             piece,
-                            flag: match info.piece_list[to_square as usize] {
+                            flag: match info.piece_list[to_square] {
                                 // TODO - pawn capture can be a promotion in this case
                                 Some(captured_piece) => MoveFlag::Capture(captured_piece),
                                 None => MoveFlag::Quiet,
@@ -178,7 +178,7 @@ impl MoveGenerator {
 
         // go through all opposing pieces, popping one from the bitboard each iteration
         while !opposing_pieces.is_empty() {
-            let square = opposing_pieces.pop_first_square() as usize;
+            let square = opposing_pieces.pop_first_square();
             let piece = info.piece_list[square].unwrap();
 
             let current_piece_attack = match piece {
@@ -206,7 +206,7 @@ impl MoveGenerator {
     fn generate_king_moves(&self, king_square: Square, info: &MoveGenBoardInfo) -> Vec<Move> {
         let mut moves: Vec<Move> = Vec::new();
 
-        let mut king_moves = self.king_moves[king_square as usize];
+        let mut king_moves = self.king_moves[king_square];
 
         // cannot move into squares occupied by the same color
         king_moves &= !info.same_pieces;
@@ -219,7 +219,7 @@ impl MoveGenerator {
                 from: king_square,
                 to: to_square,
                 piece: Piece::King,
-                flag: match info.piece_list[to_square as usize] {
+                flag: match info.piece_list[to_square] {
                     Some(piece) => MoveFlag::Capture(piece),
                     None => MoveFlag::Quiet,
                 },
@@ -256,7 +256,7 @@ impl MoveGenerator {
     fn generate_knight_moves(&self, knight_square: Square, info: &MoveGenBoardInfo) -> Vec<Move> {
         let mut moves: Vec<Move> = Vec::new();
 
-        let mut knight_moves = self.knight_moves[knight_square as usize];
+        let mut knight_moves = self.knight_moves[knight_square];
 
         // cannot move into squares occupied by the same color
         knight_moves &= !info.same_pieces;
@@ -269,7 +269,7 @@ impl MoveGenerator {
                 from: knight_square,
                 to: to_square,
                 piece: Piece::Knight,
-                flag: match info.piece_list[to_square as usize] {
+                flag: match info.piece_list[to_square] {
                     Some(piece) => MoveFlag::Capture(piece),
                     None => MoveFlag::Quiet,
                 },
@@ -332,7 +332,7 @@ impl MoveGenerator {
         }
 
         // get the moving color's pawn attacks at this square
-        let attacks = self.pawn_attacks[&info.active_color][from_square as usize];
+        let attacks = self.pawn_attacks[&info.active_color][from_square];
 
         // check for regular pawn attacks, not including en passant capture
         let mut regular_attacks = attacks & info.opposing_pieces;
@@ -340,7 +340,7 @@ impl MoveGenerator {
             let to_square = regular_attacks.pop_first_square();
 
             // cannot be an empty square, safe to unwrap
-            let captured_piece = info.piece_list[to_square as usize].unwrap();
+            let captured_piece = info.piece_list[to_square].unwrap();
 
             // again check if this is a promotion move
             let is_promotion =
@@ -405,7 +405,7 @@ impl MoveGenerator {
 
         // build the bitboard properly clipped wherever there is a blocker
         let mut regular_moves =
-            self.generate_sliding_attack_bitboard(piece_square as usize, piece, info.all_pieces);
+            self.generate_sliding_attack_bitboard(piece_square, piece, info.all_pieces);
 
         // since all pieces are used to find blockers, this bishop may be attacking a same-color piece
         // this AND will take the possibly invalid final move in the slide and see if it shares a space with a piece of the same color
@@ -419,7 +419,7 @@ impl MoveGenerator {
                 from: piece_square,
                 to: to_square,
                 piece,
-                flag: match info.piece_list[to_square as usize] {
+                flag: match info.piece_list[to_square] {
                     Some(captured_piece) => MoveFlag::Capture(captured_piece),
                     None => MoveFlag::Quiet,
                 },
@@ -463,7 +463,7 @@ impl MoveGenerator {
                 } else {
                     // else the first piece will be closest to the LSB (and subtract 63 because we need it in terms of MSB, not LSB)
                     blocker_board.get_last_square()
-                } as usize;
+                };
 
                 // finally, XOR the attack with the same direction attack from this first blocker to clip it off after the blocker
                 attacks[piece_square] ^ attacks[first_blocker]
