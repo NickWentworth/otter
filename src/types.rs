@@ -59,6 +59,9 @@ impl Bitboard {
     /// An entirely empty bitboard
     pub const EMPTY: Bitboard = Bitboard(0);
 
+    /// An entirely full bitboard
+    pub const FULL: Bitboard = Bitboard(0xFF_FF_FF_FF_FF_FF_FF_FF);
+
     /// A special bitboard used for indexing, the MSB is set to 1 and all other bits are 0
     pub const MSB: Bitboard = Bitboard(0x80_00_00_00_00_00_00_00);
 
@@ -245,6 +248,18 @@ impl BitXor for Bitboard {
 impl BitXorAssign for Bitboard {
     fn bitxor_assign(&mut self, rhs: Self) {
         *self = *self ^ rhs;
+    }
+}
+
+impl Piece {
+    /// Returns true if the piece attacks by sliding
+    pub fn is_sliding(self) -> bool {
+        use Piece::*;
+
+        match self {
+            Bishop | Rook | Queen => true,
+            Pawn | Knight | King => false,
+        }
     }
 }
 

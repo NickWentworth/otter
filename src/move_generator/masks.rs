@@ -18,8 +18,8 @@ impl FileBoundMask {
 pub struct RankPositionMask;
 impl RankPositionMask {
     // single rank checks
-    pub const THIRD: Bitboard = Bitboard(0x00_00_00_00_00_FF_00_00);
-    pub const SIXTH: Bitboard = Bitboard(0x00_00_FF_00_00_00_00_00);
+    pub const SECOND: Bitboard = Bitboard(0x00_00_00_00_00_00_FF_00);
+    pub const SEVENTH: Bitboard = Bitboard(0x00_FF_00_00_00_00_00_00);
 
     // check for pawns on promotion squares
     // don't need to separate the promotion squares for each side, only white pawns can move to rank 8 and black to rank 1

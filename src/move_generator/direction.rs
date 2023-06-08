@@ -1,7 +1,7 @@
 use crate::types::{Bitboard, Color, Square, BOARD_SIZE};
 use std::collections::HashMap;
 
-use super::masks::FileBoundMask;
+use super::masks::{FileBoundMask, RankPositionMask};
 
 /// Describes the different directions of movement on the board as constants
 pub struct Direction;
@@ -81,7 +81,7 @@ pub fn generate_knight_moves() -> [Bitboard; BOARD_SIZE] {
     boards
 }
 
-/// Generates a lookup table for pawn moves at each square, indexed by color
+/// Generates a lookup table for pawn attacks at each square, indexed by color
 pub fn generate_pawn_attacks() -> HashMap<Color, [Bitboard; BOARD_SIZE]> {
     let mut white_boards = [Bitboard::EMPTY; BOARD_SIZE];
     let mut black_boards = [Bitboard::EMPTY; BOARD_SIZE];
@@ -106,6 +106,64 @@ pub fn generate_pawn_attacks() -> HashMap<Color, [Bitboard; BOARD_SIZE]> {
 
         *black_board |= pawn_position_a_file_masked >> Direction::SW;
         *black_board |= pawn_position_h_file_masked >> Direction::SE;
+    }
+
+    // build hashmap so we can index it by color
+    let mut h = HashMap::new();
+    h.insert(Color::White, white_boards);
+    h.insert(Color::Black, black_boards);
+    h
+}
+
+/// Generates a lookup table for pawn single moves at each square, indexed by color
+pub fn generate_pawn_single_moves() -> HashMap<Color, [Bitboard; BOARD_SIZE]> {
+    let mut white_boards = [Bitboard::EMPTY; BOARD_SIZE];
+    let mut black_boards = [Bitboard::EMPTY; BOARD_SIZE];
+
+    for (square, (white_board, black_board)) in
+        white_boards.iter_mut().zip(&mut black_boards).enumerate()
+    {
+        // generate position bitboard
+        let pawn_position = Bitboard::shifted_board(square);
+
+        // board move representation:
+        // white:       black:
+        // .  .  .      . (P) .
+        // .  1  .      .  1  .
+        // . (P) .      .  .  .
+
+        // generate moves by shifting in each moving direction (per color)
+        *white_board |= pawn_position >> Direction::N;
+        *black_board |= pawn_position >> Direction::S;
+    }
+
+    // build hashmap so we can index it by color
+    let mut h = HashMap::new();
+    h.insert(Color::White, white_boards);
+    h.insert(Color::Black, black_boards);
+    h
+}
+
+/// Generates a lookup table for pawn double moves at each square, indexed by color
+pub fn generate_pawn_double_moves() -> HashMap<Color, [Bitboard; BOARD_SIZE]> {
+    let mut white_boards = [Bitboard::EMPTY; BOARD_SIZE];
+    let mut black_boards = [Bitboard::EMPTY; BOARD_SIZE];
+
+    for (square, (white_board, black_board)) in
+        white_boards.iter_mut().zip(&mut black_boards).enumerate()
+    {
+        // generate position bitboard
+        let pawn_position = Bitboard::shifted_board(square);
+
+        // board move representation:
+        // white:       black:
+        // .  1  .      . (P) .
+        // .  .  .      .  .  .
+        // . (P) .      .  1  .
+
+        // generate moves by shifting in each moving direction (per color)
+        *white_board |= (pawn_position & RankPositionMask::SECOND) >> Direction::N + Direction::N;
+        *black_board |= (pawn_position & RankPositionMask::SEVENTH) >> Direction::S + Direction::S;
     }
 
     // build hashmap so we can index it by color
