@@ -104,7 +104,14 @@ impl Bitboard {
     /// Pops the first square from the board (in-place) and returns the square it was popped from
     pub fn pop_first_square(&mut self) -> Square {
         let square = self.get_first_square();
-        *self ^= Self::shifted_board(square);
+
+        // ensure square to remove is less than board size, else overflow will occur
+        if square < BOARD_SIZE {
+            *self ^= Self::shifted_board(square);
+        } else {
+            *self = Self::EMPTY;
+        }
+
         square
     }
 
@@ -119,6 +126,21 @@ impl Bitboard {
         }
 
         count
+    }
+}
+
+/// Basic iterator that returns the squares of each 1 bit in the board
+impl Iterator for Bitboard {
+    type Item = Square;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let square = self.pop_first_square();
+
+        if square < BOARD_SIZE {
+            Some(square)
+        } else {
+            None
+        }
     }
 }
 

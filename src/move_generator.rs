@@ -125,9 +125,7 @@ impl MoveGenerator {
         // now iterate through each type of piece, generating their moves
         let mut moves = Vec::new();
 
-        let mut active_pieces = info.same_pieces;
-        while !active_pieces.is_empty() {
-            let from_square = active_pieces.pop_first_square();
+        for from_square in info.same_pieces {
             let moving_piece = info.piece_list[from_square].unwrap();
 
             // pawn moves are wacky so generate these separately
@@ -220,7 +218,7 @@ impl MoveGenerator {
             }
 
             // regular attacking moves
-            let mut attack_moves = match moving_piece {
+            let attack_moves = match moving_piece {
                 King => self.king_moves[from_square] & king_move_mask,
 
                 Knight => self.knight_moves[from_square] & (capture_mask | block_mask),
@@ -235,9 +233,7 @@ impl MoveGenerator {
             } & !info.same_pieces;
 
             // iterate through legal moves and push into list
-            while !attack_moves.is_empty() {
-                let to_square = attack_moves.pop_first_square();
-
+            for to_square in attack_moves {
                 moves.push(Move {
                     from: from_square,
                     to: to_square,
@@ -260,12 +256,10 @@ impl MoveGenerator {
         use Piece::*;
         let mut attack_board = Bitboard::EMPTY;
 
-        let mut opposing_pieces = info.opposing_pieces;
         let king_position = Bitboard::shifted_board(king_square);
 
         // go through all opposing pieces, popping one from the bitboard each iteration
-        while !opposing_pieces.is_empty() {
-            let square = opposing_pieces.pop_first_square();
+        for square in info.opposing_pieces {
             let piece = info.piece_list[square].unwrap();
 
             let current_piece_attack = match piece {

@@ -299,10 +299,8 @@ impl Board {
         let mut list = [None; BOARD_SIZE];
 
         for piece in ALL_PIECES {
-            let mut piece_board = self.pieces[piece].clone();
-
-            while !piece_board.is_empty() {
-                list[piece_board.pop_first_square()] = Some(piece);
+            for square in self.pieces[piece] {
+                list[square] = Some(piece);
             }
         }
 
@@ -319,10 +317,7 @@ impl Display for Board {
 
         // generate array of characters representing pieces
         for piece in ALL_PIECES {
-            let mut piece_board = self.pieces[piece];
-
-            while !piece_board.is_empty() {
-                let square = piece_board.pop_first_square();
+            for square in self.pieces[piece] {
                 let position = Bitboard::shifted_board(square);
 
                 // match the character at this square to a piece on the board
