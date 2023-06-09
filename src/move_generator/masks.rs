@@ -26,18 +26,30 @@ impl RankPositionMask {
     pub const PROMOTION: Bitboard = Bitboard(0xFF_00_00_00_00_00_00_FF);
 }
 
-/// Can be bitwise AND-ed to test for valid castling squares
+/// Used in move generation to check if castling squares are valid according to rules
 ///
-/// Indexed by the `Color` of the king being castled
+/// Can be bitwise AND-ed to test if castling squares are under attack and indexed by the `Color` of the castling side
 pub struct CastleMask;
 impl CastleMask {
-    pub const KINGSIDE: [Bitboard; NUM_COLORS] = [
-        Bitboard(0x00_00_00_00_00_00_00_06),
-        Bitboard(0x06_00_00_00_00_00_00_00),
+    // empty squares that cannot have pieces on them for castling
+    pub const KINGSIDE_EMPTY: [Bitboard; NUM_COLORS] = [
+        Bitboard(0x00_00_00_00_00_00_00_06), // white
+        Bitboard(0x06_00_00_00_00_00_00_00), // black
     ];
 
-    pub const QUEENSIDE: [Bitboard; NUM_COLORS] = [
-        Bitboard(0x00_00_00_00_00_00_00_70),
-        Bitboard(0x70_00_00_00_00_00_00_00),
+    pub const QUEENSIDE_EMPTY: [Bitboard; NUM_COLORS] = [
+        Bitboard(0x00_00_00_00_00_00_00_70), // white
+        Bitboard(0x70_00_00_00_00_00_00_00), // black
+    ];
+
+    // square that cannot be attacked for castling to be valid
+    pub const KINGSIDE_SAFE: [Bitboard; NUM_COLORS] = [
+        Bitboard(0x00_00_00_00_00_00_00_0E), // white
+        Bitboard(0x0E_00_00_00_00_00_00_00), // black
+    ];
+
+    pub const QUEENSIDE_SAFE: [Bitboard; NUM_COLORS] = [
+        Bitboard(0x00_00_00_00_00_00_00_38), // white
+        Bitboard(0x38_00_00_00_00_00_00_00), // black
     ];
 }

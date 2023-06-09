@@ -12,7 +12,7 @@ use direction::{
     generate_king_moves, generate_knight_moves, generate_pawn_attacks, generate_pawn_double_moves,
     generate_pawn_single_moves, generate_sliding_attacks, Direction,
 };
-use masks::RankPositionMask;
+use masks::{CastleMask, RankPositionMask};
 pub use moves::{Move, MoveFlag};
 
 type DirectionAttackPair = (isize, [Bitboard; BOARD_SIZE]);
@@ -300,8 +300,39 @@ impl MoveGenerator {
                     },
                 })
             }
+        }
 
-            // TODO - generate castling moves
+        // try to generate castling moves
+        if info.king_castle_rights {
+            // check if squares between king and rook are empty on the kingside
+            if (CastleMask::KINGSIDE_EMPTY[info.active_color] & info.all_pieces).is_empty() {
+                // and check that there are only safe squares to move along
+                if (CastleMask::KINGSIDE_SAFE[info.active_color] & !king_move_mask).is_empty() {
+                    // if so, add the castle move
+                    moves.push(Move {
+                        from: king_square,
+                        to: king_square + 2, // destination square is 2 to the right
+                        piece: King,
+                        flag: KingCastle,
+                    })
+                }
+            }
+        }
+
+        if info.queen_castle_rights {
+            // check if squares between king and rook are empty on the queenside
+            if (CastleMask::QUEENSIDE_EMPTY[info.active_color] & info.all_pieces).is_empty() {
+                // and check that there are only safe squares to move along
+                if (CastleMask::QUEENSIDE_SAFE[info.active_color] & !king_move_mask).is_empty() {
+                    // if so, add the castle move
+                    moves.push(Move {
+                        from: king_square,
+                        to: king_square - 2, // destination square is 2 to the left
+                        piece: King,
+                        flag: QueenCastle,
+                    })
+                }
+            }
         }
 
         moves
