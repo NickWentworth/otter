@@ -120,6 +120,57 @@ impl MoveGenerator {
             }
         };
 
+        // find all pinned pieces and get a mask of their only legal moves
+        let pin_masks = {
+            // initially no pins, only will be there if set
+            let mut masks = [Bitboard::FULL; BOARD_SIZE];
+
+            // get a bitboard of all possible pinned friendly pieces by attacking in every direction from king square
+            let king_attackable_pieces =
+                self.generate_sliding_attack(king_square, Queen, info.all_pieces)
+                    & info.same_pieces;
+
+            // for each opposing sliding piece, see if it attacks one of the possible pinned friendly pieces
+            for opposing_square in info.opposing_pieces {
+                let opposing_piece = info.piece_list[opposing_square].unwrap();
+
+                // only sliding pieces can create a pin
+                if !opposing_piece.is_sliding() {
+                    continue;
+                }
+
+                // get attackable pieces
+                let opposing_attackable_pieces =
+                    self.generate_sliding_attack(opposing_square, opposing_piece, info.all_pieces)
+                        & info.same_pieces;
+
+                // and get a possible pinned piece (or not) from this attacking opposing piece
+                let possible_pin = opposing_attackable_pieces & king_attackable_pieces;
+
+                // if no overlap between the two attacks, there isn't possibility of a pinned piece
+                if possible_pin.is_empty() {
+                    continue;
+                }
+
+                // try to get attack ray on the king, skipping through the pinned piece
+                let attack_through_pin = self.generate_sliding_attack_at_square(
+                    king_square,
+                    opposing_square,
+                    opposing_piece,
+                    info.all_pieces & !possible_pin,
+                );
+
+                // if the attack is empty, it means the piece was not able to attack the king and there is no pin
+                if !attack_through_pin.is_empty() {
+                    // else, we set this square as pinned and only allow it to move along the attack or capture the pinning piece
+                    masks[possible_pin.get_first_square()] =
+                        attack_through_pin | Bitboard::shifted_board(opposing_square);
+                }
+            }
+
+            masks
+        };
+
         // TODO - check for pinned pieces
 
         // now iterate through each type of piece, generating their moves
@@ -128,17 +179,20 @@ impl MoveGenerator {
         for from_square in info.same_pieces {
             let moving_piece = info.piece_list[from_square].unwrap();
 
+            // piece is only allowed to move according to the pin mask
+            let pin_mask = pin_masks[from_square];
+
             // pawn moves are wacky so generate these separately
             if moving_piece == Pawn {
                 // pawn pushes
                 let single_move =
-                    self.pawn_single[&info.active_color][from_square] & !info.all_pieces;
+                    self.pawn_single[&info.active_color][from_square] & pin_mask & !info.all_pieces;
 
                 // double move is only valid if single move isn't blocked
                 let double_move = if single_move.is_empty() {
                     Bitboard::EMPTY
                 } else {
-                    self.pawn_double[&info.active_color][from_square] & !info.all_pieces
+                    self.pawn_double[&info.active_color][from_square] & pin_mask & !info.all_pieces
                 };
 
                 // both single and double pushes can only block checks, not capture attackers
@@ -185,6 +239,7 @@ impl MoveGenerator {
                 // now handle pawn attacks
                 let mut normal_attacks = self.pawn_attacks[&info.active_color][from_square]
                     & capture_mask // pawn attack will only count as a capture
+                    & pin_mask // and move according to pins
                     & info.opposing_pieces; // and can only attack opposing pieces
 
                 if !normal_attacks.is_empty() {
@@ -230,7 +285,8 @@ impl MoveGenerator {
 
                 // easier to handle pawns elsewhere
                 Pawn => unreachable!(),
-            } & !info.same_pieces;
+            } & pin_mask // also must move according to pins
+                & !info.same_pieces; // and not into the same color pieces
 
             // iterate through legal moves and push into list
             for to_square in attack_moves {
