@@ -235,13 +235,12 @@ impl MoveGenerator {
                 }
 
                 // now handle pawn attacks
-                let mut normal_attacks = self.pawn_attacks[&info.active_color][from_square]
+                let normal_attacks = self.pawn_attacks[&info.active_color][from_square]
                     & capture_mask // pawn attack will only count as a capture
                     & pin_mask // and move according to pins
                     & info.opposing_pieces; // and can only attack opposing pieces
 
-                if !normal_attacks.is_empty() {
-                    let to_square = normal_attacks.pop_first_square();
+                for to_square in normal_attacks {
                     let captured_piece = info.piece_list[to_square].unwrap();
 
                     if RankPositionMask::PROMOTION.bit_at(to_square) {
