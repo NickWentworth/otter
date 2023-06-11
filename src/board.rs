@@ -152,9 +152,9 @@ impl Board {
                 self.colors[moving_color.opposite()].set_bit_at(m.to, false);
 
                 // only set captured piece bit false if it is different than the moving piece, else both pieces will disappear
-                // if m.piece != captured_piece {
-                self.pieces[captured_piece].set_bit_at(m.to, false);
-                // }
+                if m.piece != captured_piece {
+                    self.pieces[captured_piece].set_bit_at(m.to, false);
+                }
             }
 
             // combination of capture and promotion
