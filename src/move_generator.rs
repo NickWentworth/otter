@@ -171,8 +171,6 @@ impl MoveGenerator {
             masks
         };
 
-        // TODO - check for pinned pieces
-
         // now iterate through each type of piece, generating their moves
         let mut moves = Vec::new();
 
@@ -267,7 +265,64 @@ impl MoveGenerator {
                     }
                 }
 
-                // TODO - finally, handle en passant attacks
+                // finally, handle en passant attacks
+                let en_passant_attack =
+                    self.pawn_attacks[&info.active_color][from_square] & info.en_passant;
+
+                // en passants can have hard-to-find pins
+                // since they are uncommon we can just check if the king is in check after the move
+                if !en_passant_attack.is_empty() {
+                    // destination of our attacking pawn
+                    let en_passant_destination = en_passant_attack.get_first_square();
+
+                    // square that the opposing piece being taken is on
+                    let en_passant_target = match info.active_color {
+                        Color::White => en_passant_destination + 8,
+                        Color::Black => en_passant_destination - 8,
+                    };
+
+                    // temporarily move the pieces
+                    let mut temp_all_pieces = info.all_pieces;
+                    temp_all_pieces.set_bit_at(from_square, false); // remove moving piece
+                    temp_all_pieces.set_bit_at(en_passant_destination, true); // move to destination
+                    temp_all_pieces.set_bit_at(en_passant_target, false); // and delete target
+
+                    // and check for king under attack
+                    let king_under_attack = {
+                        let mut attacked = false;
+
+                        for opposing_square in info.opposing_pieces {
+                            let opposing_piece = info.piece_list[opposing_square].unwrap();
+
+                            if opposing_piece.is_sliding() {
+                                let attack_on_king = self.generate_sliding_attack_at_square(
+                                    king_square,
+                                    opposing_square,
+                                    opposing_piece,
+                                    temp_all_pieces,
+                                );
+
+                                // if an attack on king exists, it would be in check
+                                if !attack_on_king.is_empty() {
+                                    attacked = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        attacked
+                    };
+
+                    // if the king is not under attack, add the move
+                    if !king_under_attack {
+                        moves.push(Move {
+                            from: from_square,
+                            to: en_passant_destination,
+                            piece: Pawn,
+                            flag: EnPassantCapture(en_passant_target),
+                        })
+                    }
+                }
 
                 continue;
             }
