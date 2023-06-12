@@ -15,6 +15,7 @@ const INITIAL_KINGSIDE_ROOK_SQUARES: [Square; NUM_COLORS] = [63, 7];
 const INITIAL_QUEENSIDE_ROOK_SQUARES: [Square; NUM_COLORS] = [56, 0];
 
 /// Variables related to conditions of the game
+#[derive(Clone)]
 struct GameState {
     current_turn: Color,
     king_castle: [bool; NUM_COLORS], // castling availability for each color and king/queen side
@@ -29,6 +30,9 @@ pub struct Board {
     pieces: [Bitboard; NUM_PIECES],
     colors: [Bitboard; NUM_COLORS],
     game_state: GameState,
+
+    // stack containing moves and matching info needed to unmake the previously made move
+    history: Vec<(Move, GameState)>,
 }
 
 /// Contains important info for move generation that is fetched once and used multiple times
@@ -125,6 +129,7 @@ impl Board {
                 halfmove: fen_parts[4].parse().unwrap(),
                 fullmove: fen_parts[5].parse().unwrap(),
             },
+            history: Vec::new(),
         }
     }
 
@@ -132,6 +137,9 @@ impl Board {
     ///
     /// Assumes `m` is a valid and legal move
     pub fn make_move(&mut self, m: &Move) {
+        // push move and current game state to stack
+        self.history.push((m.clone(), self.game_state.clone()));
+
         // store locally because of borrow checker
         let moving_color = self.game_state.current_turn;
 
@@ -294,6 +302,84 @@ impl Board {
                 Color::White => self.game_state.fullmove,
             },
         };
+    }
+
+    /// Un-makes the last move, restoring the proper board state
+    pub fn unmake_move(&mut self) {
+        use MoveFlag::*;
+
+        // pop previous move from history
+        let (m, prev_state) = match self.history.pop() {
+            Some(history) => history,
+            None => return, // if no history, return early
+        };
+
+        // get color of the side that made the move
+        let moving_color = self.game_state.current_turn.opposite();
+
+        // un-make the move, just set move bits m.to -> m.from
+        self.colors[moving_color].set_bit_at(m.to, false);
+        self.colors[moving_color].set_bit_at(m.from, true);
+        self.pieces[m.piece].set_bit_at(m.to, false);
+        self.pieces[m.piece].set_bit_at(m.from, true);
+
+        // handle unique move flag cases (castling updated elsewhere)
+        match m.flag {
+            // nothing more to do
+            Quiet => (),
+
+            // need to revert the promoted piece back to a pawn
+            Promotion(promoted_piece) => {
+                self.pieces[promoted_piece].set_bit_at(m.to, false);
+            }
+
+            // need to return the opposing color's piece
+            Capture(captured_piece) => {
+                self.colors[moving_color.opposite()].set_bit_at(m.to, true);
+                self.pieces[captured_piece].set_bit_at(m.to, true);
+            }
+
+            // combination of capture and promotion
+            CapturePromotion(captured_piece, promoted_piece) => {
+                // do promotion changes
+                self.pieces[promoted_piece].set_bit_at(m.to, false);
+
+                // do capture changes
+                self.colors[moving_color.opposite()].set_bit_at(m.to, true);
+                self.pieces[captured_piece].set_bit_at(m.to, true);
+            }
+
+            // nothing more to do
+            PawnDoubleMove(_) => (),
+
+            // replace enemy pawn at stored square
+            EnPassantCapture(enemy_pawn_square) => {
+                self.colors[moving_color.opposite()].set_bit_at(enemy_pawn_square, true);
+                self.pieces[Piece::Pawn].set_bit_at(enemy_pawn_square, true);
+            }
+
+            // reset the rook to the initial square
+            KingCastle => {
+                // move rook (calculated from m.to)
+                self.colors[moving_color].set_bit_at(m.to + 1, true);
+                self.colors[moving_color].set_bit_at(m.to - 1, false);
+
+                self.pieces[Piece::Rook].set_bit_at(m.to + 1, true);
+                self.pieces[Piece::Rook].set_bit_at(m.to - 1, false);
+            }
+
+            // reset the rook to the initial square
+            QueenCastle => {
+                // move rook (calculated from m.to)
+                self.colors[moving_color].set_bit_at(m.to - 2, true);
+                self.colors[moving_color].set_bit_at(m.to + 1, false);
+
+                self.pieces[Piece::Rook].set_bit_at(m.to - 2, true);
+                self.pieces[Piece::Rook].set_bit_at(m.to + 1, false);
+            }
+        }
+
+        self.game_state = prev_state;
     }
 
     /// Returns a structure used for move generation that contains needed info about the board

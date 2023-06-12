@@ -14,7 +14,7 @@ pub enum MoveFlag {
 }
 
 /// Describes a move on the board and information related to that move
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Move {
     pub from: Square,
     pub to: Square,
