@@ -1,4 +1,5 @@
-use crate::types::{Piece, Square};
+use crate::types::{Piece, Square, ALGEBRAIC_NOTATION};
+use std::fmt::Display;
 
 #[derive(Clone, Copy, Debug)]
 pub enum MoveFlag {
@@ -19,4 +20,14 @@ pub struct Move {
     pub to: Square,
     pub piece: Piece,
     pub flag: MoveFlag,
+}
+
+impl Display for Move {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}{}",
+            ALGEBRAIC_NOTATION[self.from], ALGEBRAIC_NOTATION[self.to]
+        )
+    }
 }

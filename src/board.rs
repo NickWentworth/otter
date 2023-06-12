@@ -1,6 +1,9 @@
 use crate::{
     move_generator::{Move, MoveFlag},
-    types::{Bitboard, Color, Piece, Square, ALL_PIECES, BOARD_SIZE, NUM_COLORS, NUM_PIECES},
+    types::{
+        Bitboard, Color, Piece, Square, ALGEBRAIC_NOTATION, ALL_PIECES, BOARD_SIZE, NUM_COLORS,
+        NUM_PIECES,
+    },
 };
 use std::fmt::Display;
 
@@ -115,7 +118,7 @@ impl Board {
                 },
                 king_castle: [fen_parts[2].contains('K'), fen_parts[2].contains('k')],
                 queen_castle: [fen_parts[2].contains('Q'), fen_parts[2].contains('q')],
-                en_passant_square: square_from_algebraic(&fen_parts[3]), // will handle correctly if passed "-"
+                en_passant_square: ALGEBRAIC_NOTATION.iter().position(|&s| s == fen_parts[3]),
                 halfmove: fen_parts[4].parse().unwrap(),
                 fullmove: fen_parts[5].parse().unwrap(),
             },
@@ -389,7 +392,7 @@ impl Display for Board {
                 "-"
             },
             match self.game_state.en_passant_square {
-                Some(square) => square.to_string(),
+                Some(square) => ALGEBRAIC_NOTATION[square].to_string(),
                 None => "-".to_string(),
             }
         );
@@ -398,33 +401,4 @@ impl Display for Board {
         // and write to the formatter
         write!(f, "{}", output)
     }
-}
-
-/// Tries to convert an algebraic notation string (ex: "b4") to a `Square` on the board, returning an option
-fn square_from_algebraic(algebraic: &String) -> Option<Square> {
-    let file: Square = match algebraic.chars().nth(0)? {
-        'a' => 0,
-        'b' => 1,
-        'c' => 2,
-        'd' => 3,
-        'e' => 4,
-        'f' => 5,
-        'g' => 6,
-        'h' => 7,
-        _ => return None,
-    };
-
-    let rank: Square = match algebraic.chars().nth(1)? {
-        '8' => 0,
-        '7' => 1,
-        '6' => 2,
-        '5' => 3,
-        '4' => 4,
-        '3' => 5,
-        '2' => 6,
-        '1' => 7,
-        _ => return None,
-    };
-
-    Some((rank * 8) + file)
 }
