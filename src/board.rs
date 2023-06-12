@@ -11,6 +11,9 @@ mod fen;
 
 use fen::{check_valid_fen, DEFAULT_FEN};
 
+const INITIAL_KINGSIDE_ROOK_SQUARES: [Square; NUM_COLORS] = [63, 7];
+const INITIAL_QUEENSIDE_ROOK_SQUARES: [Square; NUM_COLORS] = [56, 0];
+
 /// Variables related to conditions of the game
 struct GameState {
     current_turn: Color,
@@ -158,6 +161,21 @@ impl Board {
                 if m.piece != captured_piece {
                     self.pieces[captured_piece].set_bit_at(m.to, false);
                 }
+
+                // update castling rights if taking opposing rook
+                if captured_piece == Piece::Rook {
+                    if self.game_state.king_castle[moving_color.opposite()]
+                        && INITIAL_KINGSIDE_ROOK_SQUARES[moving_color.opposite()] == m.to
+                    {
+                        self.game_state.king_castle[moving_color.opposite()] = false;
+                    }
+
+                    if self.game_state.queen_castle[moving_color.opposite()]
+                        && INITIAL_QUEENSIDE_ROOK_SQUARES[moving_color.opposite()] == m.to
+                    {
+                        self.game_state.queen_castle[moving_color.opposite()] = false;
+                    }
+                }
             }
 
             // combination of capture and promotion
@@ -172,6 +190,21 @@ impl Board {
                 // same as capture flag, don't want both pieces to disappear if capturing the same piece that is being promoted to
                 if captured_piece != promoted_piece {
                     self.pieces[captured_piece].set_bit_at(m.to, false);
+                }
+
+                // update castling rights if taking opposing rook
+                if captured_piece == Piece::Rook {
+                    if self.game_state.king_castle[moving_color.opposite()]
+                        && INITIAL_KINGSIDE_ROOK_SQUARES[moving_color.opposite()] == m.to
+                    {
+                        self.game_state.king_castle[moving_color.opposite()] = false;
+                    }
+
+                    if self.game_state.queen_castle[moving_color.opposite()]
+                        && INITIAL_QUEENSIDE_ROOK_SQUARES[moving_color.opposite()] == m.to
+                    {
+                        self.game_state.queen_castle[moving_color.opposite()] = false;
+                    }
                 }
             }
 
@@ -213,6 +246,32 @@ impl Board {
             }
         }
 
+        // castling updates for active-color kingside
+        if self.game_state.king_castle[moving_color] {
+            // any king move will remove castling availability
+            if m.piece == Piece::King {
+                self.game_state.king_castle[moving_color] = false;
+            }
+
+            // rook move on kingside will only remove kingside castling rights
+            if m.piece == Piece::Rook && INITIAL_KINGSIDE_ROOK_SQUARES[moving_color] == m.from {
+                self.game_state.king_castle[moving_color] = false;
+            }
+        }
+
+        // castling updates for active-color queenside
+        if self.game_state.queen_castle[moving_color] {
+            // any king move will remove castling availability
+            if m.piece == Piece::King {
+                self.game_state.queen_castle[moving_color] = false;
+            }
+
+            // rook move on queenside will only remove queenside castling rights
+            if m.piece == Piece::Rook && INITIAL_QUEENSIDE_ROOK_SQUARES[moving_color] == m.from {
+                self.game_state.queen_castle[moving_color] = false;
+            }
+        }
+
         // update the rest of game state
         self.game_state = GameState {
             current_turn: moving_color.opposite(),
@@ -235,22 +294,6 @@ impl Board {
                 Color::White => self.game_state.fullmove,
             },
         };
-
-        // check if rook/king has been moved to change castling rights
-        let kingside_rights = self.game_state.king_castle[moving_color];
-        let queenside_rights = self.game_state.queen_castle[moving_color];
-
-        // TODO - add these rook squares as constants elsewhere
-        // kingside check
-        if kingside_rights && (m.piece == Piece::Rook) && (m.from == 7 || m.from == 63) {
-            self.game_state.king_castle[moving_color] = false;
-        }
-
-        // TODO - add these rook squares as constants elsewhere
-        // queenside check
-        if queenside_rights && (m.piece == Piece::Rook) && (m.from == 0 || m.from == 56) {
-            self.game_state.queen_castle[moving_color] = false;
-        }
     }
 
     /// Returns a structure used for move generation that contains needed info about the board

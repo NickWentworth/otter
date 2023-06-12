@@ -332,3 +332,6 @@ index_traits!(Color, Bitboard);
 
 // castling rights within Board struct
 index_traits!(Color, bool);
+
+// initial rook squares for castling updates
+index_traits!(Color, Square);
