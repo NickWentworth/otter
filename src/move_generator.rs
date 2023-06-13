@@ -160,7 +160,8 @@ impl MoveGenerator {
                     );
 
                     // if the attack is empty, it means the piece was not able to attack the king and there is no pin
-                    if !attack_through_pin.is_empty() {
+                    // the pinned square must also be involved in the attack, otherwise the attack may just be a check with this piece off to the side
+                    if !attack_through_pin.is_empty() && attack_through_pin.bit_at(pinned_square) {
                         // else, we set this square as pinned
                         masks[pinned_square] = attack_through_pin; // only allow it to move along the attack
                         masks[pinned_square].set_bit_at(opposing_square, true); // or capture the pinning piece
