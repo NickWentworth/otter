@@ -144,27 +144,27 @@ impl MoveGenerator {
                     self.generate_sliding_attack(opposing_square, opposing_piece, info.all_pieces)
                         & info.same_pieces;
 
-                // and get a possible pinned piece (or not) from this attacking opposing piece
-                let possible_pin = opposing_attackable_pieces & king_attackable_pieces;
+                // and get any possible pinned pieces from this attacking opposing piece
+                let possible_pins = opposing_attackable_pieces & king_attackable_pieces;
 
-                // if no overlap between the two attacks, there isn't possibility of a pinned piece
-                if possible_pin.is_empty() {
-                    continue;
-                }
+                // go through each possibly pinned piece and see if an attack can be generated through it
+                for pinned_square in possible_pins {
+                    let pinned_piece_position = Bitboard::shifted_board(pinned_square);
 
-                // try to get attack ray on the king, skipping through the pinned piece
-                let attack_through_pin = self.generate_sliding_attack_at_square(
-                    king_square,
-                    opposing_square,
-                    opposing_piece,
-                    info.all_pieces & !possible_pin,
-                );
+                    // try to get attack ray on the king, skipping through the pinned piece
+                    let attack_through_pin = self.generate_sliding_attack_at_square(
+                        king_square,
+                        opposing_square,
+                        opposing_piece,
+                        info.all_pieces & !pinned_piece_position,
+                    );
 
-                // if the attack is empty, it means the piece was not able to attack the king and there is no pin
-                if !attack_through_pin.is_empty() {
-                    // else, we set this square as pinned and only allow it to move along the attack or capture the pinning piece
-                    masks[possible_pin.get_first_square()] =
-                        attack_through_pin | Bitboard::shifted_board(opposing_square);
+                    // if the attack is empty, it means the piece was not able to attack the king and there is no pin
+                    if !attack_through_pin.is_empty() {
+                        // else, we set this square as pinned
+                        masks[pinned_square] = attack_through_pin; // only allow it to move along the attack
+                        masks[pinned_square].set_bit_at(opposing_square, true); // or capture the pinning piece
+                    }
                 }
             }
 
