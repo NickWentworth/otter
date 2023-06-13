@@ -18,3 +18,49 @@ pub fn perft(move_generator: &MoveGenerator, board: &mut Board, depth: u8) -> us
         total
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{board::Board, move_generator::MoveGenerator};
+
+    /// Varying positions with expected values from the perft function at a given depth
+    ///
+    /// Fetched from https://www.chessprogramming.org/Perft_Results, depth is chosen to have expected value ~10 million nodes
+    ///
+    /// Tuple is in the form (fen, depth, expected)
+    const TEST_CASES: [(&str, u8, usize); 3] = [
+        (
+            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+            5,
+            4865609,
+        ),
+        (
+            "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+            4,
+            4085603,
+        ),
+        (
+            "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
+            5,
+            15833292,
+        ),
+    ];
+
+    #[test]
+    fn test_perft() {
+        let mg = MoveGenerator::new();
+
+        for (fen, depth, expected) in TEST_CASES {
+            let mut b = Board::new(fen.to_string());
+
+            assert_eq!(
+                perft(&mg, &mut b, depth),
+                expected,
+                "Failed on position {} at depth {}",
+                fen,
+                depth
+            );
+        }
+    }
+}
