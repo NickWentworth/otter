@@ -19,6 +19,27 @@ pub fn perft(move_generator: &MoveGenerator, board: &mut Board, depth: u8) -> us
     }
 }
 
+/// Returns identical value to perft function, but prints the perft of every move from starting position
+pub fn perft_divide(move_generator: &MoveGenerator, board: &mut Board, depth: u8) -> usize {
+    if depth == 0 {
+        1
+    } else {
+        let mut total = 0;
+
+        for m in move_generator.generate_moves(board) {
+            board.make_move(&m);
+
+            let this_move_total = perft(move_generator, board, depth - 1);
+            total += this_move_total;
+            println!("{}: {}", m, this_move_total);
+
+            board.unmake_move();
+        }
+
+        total
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
