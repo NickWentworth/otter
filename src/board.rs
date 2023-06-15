@@ -8,8 +8,10 @@ use crate::{
 use std::fmt::Display;
 
 mod fen;
+mod position;
 
 use fen::{check_valid_fen, DEFAULT_FEN};
+pub use position::Position;
 
 const INITIAL_KINGSIDE_ROOK_SQUARES: [Square; NUM_COLORS] = [63, 7];
 const INITIAL_QUEENSIDE_ROOK_SQUARES: [Square; NUM_COLORS] = [56, 0];
@@ -33,23 +35,6 @@ pub struct Board {
 
     // stack containing moves and matching info needed to unmake the previously made move
     history: Vec<(Move, GameState)>,
-}
-
-/// Contains important info for move generation that is fetched once and used multiple times
-pub struct MoveGenBoardInfo {
-    pub active_color: Color,
-    pub inactive_color: Color,
-
-    pub same_pieces: Bitboard,
-    pub opposing_pieces: Bitboard,
-    pub all_pieces: Bitboard,
-    pub no_pieces: Bitboard,
-
-    pub en_passant: Bitboard,
-    pub king_castle_rights: bool,
-    pub queen_castle_rights: bool,
-
-    pub piece_list: [Option<Piece>; BOARD_SIZE],
 }
 
 impl Board {
@@ -382,34 +367,22 @@ impl Board {
         self.game_state = prev_state;
     }
 
-    /// Returns a structure used for move generation that contains needed info about the board
-    pub fn get_board_info(&self) -> MoveGenBoardInfo {
-        let active_color = self.game_state.current_turn;
-        let inactive_color = active_color.opposite();
+    /// Returns a structure used for external functions that contains needed info about the board
+    pub fn position(&self) -> Position {
+        Position {
+            active_color: self.game_state.current_turn,
 
-        let same_pieces = self.colors[active_color];
-        let opposing_pieces = self.colors[inactive_color];
-        let all_pieces = same_pieces | opposing_pieces;
-        let no_pieces = !all_pieces;
+            active_pieces: self.colors[self.game_state.current_turn],
+            inactive_pieces: self.colors[self.game_state.current_turn.opposite()],
 
-        let en_passant = match self.game_state.en_passant_square {
-            Some(square) => Bitboard::shifted_board(square),
-            None => Bitboard::EMPTY,
-        };
+            en_passant: match self.game_state.en_passant_square {
+                Some(square) => Bitboard::shifted_board(square),
+                None => Bitboard::EMPTY,
+            },
 
-        let king_castle_rights = self.game_state.king_castle[active_color];
-        let queen_castle_rights = self.game_state.queen_castle[active_color];
+            king_castle_rights: self.game_state.king_castle[self.game_state.current_turn],
+            queen_castle_rights: self.game_state.queen_castle[self.game_state.current_turn],
 
-        MoveGenBoardInfo {
-            active_color,
-            inactive_color,
-            same_pieces,
-            opposing_pieces,
-            all_pieces,
-            no_pieces,
-            en_passant,
-            king_castle_rights,
-            queen_castle_rights,
             piece_list: self.get_piece_list(),
         }
     }
