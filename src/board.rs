@@ -1,9 +1,9 @@
 use crate::{
-    move_generator::{Move, MoveFlag},
-    types::{
+    core::{
         Bitboard, Color, Piece, Square, ALGEBRAIC_NOTATION, ALL_PIECES, BOARD_SIZE, NUM_COLORS,
         NUM_PIECES,
     },
+    move_generator::{Move, MoveFlag},
 };
 use std::fmt::Display;
 

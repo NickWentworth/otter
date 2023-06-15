@@ -1,6 +1,6 @@
 use crate::{
     board::{Board, MoveGenBoardInfo},
-    types::{Bitboard, Color, Piece, Square, BOARD_SIZE, PROMOTION_PIECES},
+    core::{Bitboard, Color, Piece, Square, BOARD_SIZE, PROMOTION_PIECES},
 };
 use std::collections::HashMap;
 

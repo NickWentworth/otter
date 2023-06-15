@@ -1,4 +1,4 @@
-use crate::types::{Bitboard, Color, Square, BOARD_SIZE};
+use crate::core::{Bitboard, Color, BOARD_SIZE};
 use std::collections::HashMap;
 
 use super::masks::{FileBoundMask, RankPositionMask};

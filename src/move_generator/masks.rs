@@ -1,4 +1,4 @@
-use crate::types::{Bitboard, NUM_COLORS};
+use crate::core::{Bitboard, NUM_COLORS};
 
 /// Used in move generation for bounds checking
 ///

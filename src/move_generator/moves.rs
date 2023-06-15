@@ -1,4 +1,4 @@
-use crate::types::{Piece, Square, ALGEBRAIC_NOTATION};
+use crate::core::{Piece, Square, ALGEBRAIC_NOTATION};
 use std::fmt::Display;
 
 #[derive(Clone, Copy, Debug)]

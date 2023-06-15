@@ -1,71 +1,17 @@
 use std::{
     fmt::Display,
     ops::{
-        BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Index, IndexMut, Not, Shl,
-        ShlAssign, Shr, ShrAssign,
+        BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not, Shl, ShlAssign, Shr,
+        ShrAssign,
     },
 };
 
-/*
-Bitboard bits to Square values:
-(MSB) 0  1  2  3  4  5  6  7
-      8  9  10 11 12 13 14 15
-      16 17 18 19 20 21 22 23
-      24 25 26 27 28 29 30 31
-      32 33 34 35 36 37 38 39
-      40 41 42 43 44 45 46 47
-      48 49 50 51 52 53 54 55
-      56 57 58 59 60 61 62 63 (LSB)
-*/
-
-// -------------------- STRUCTS -------------------- //
-
-#[derive(Clone, Copy, PartialEq)]
-pub struct Bitboard(pub u64);
-
-// although there are only 64 squares, a square is commonly used to index an array so this helps reduce so many casts
-pub type Square = usize;
-
-#[derive(Clone, Copy, PartialEq, Debug)]
-pub enum Piece {
-    Pawn,
-    Knight,
-    Bishop,
-    Rook,
-    Queen,
-    King,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub enum Color {
-    White,
-    Black,
-}
-
-// -------------------- CONSTS -------------------- //
+use super::Square;
 
 pub const BOARD_SIZE: usize = 64;
 
-pub const NUM_PIECES: usize = 6;
-pub const NUM_COLORS: usize = 2;
-
-use Piece::*;
-pub const ALL_PIECES: [Piece; NUM_PIECES] = [Pawn, Knight, Bishop, Rook, Queen, King];
-pub const PROMOTION_PIECES: [Piece; 4] = [Knight, Bishop, Rook, Queen];
-
-/// Returns the algebraic notation of any given square
-pub const ALGEBRAIC_NOTATION: [&str; BOARD_SIZE] = [
-    "a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8",
-    "a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7",
-    "a6", "b6", "c6", "d6", "e6", "f6", "g6", "h6",
-    "a5", "b5", "c5", "d5", "e5", "f5", "g5", "h5",
-    "a4", "b4", "c4", "d4", "e4", "f4", "g4", "h4",
-    "a3", "b3", "c3", "d3", "e3", "f3", "g3", "h3",
-    "a2", "b2", "c2", "d2", "e2", "f2", "g2", "h2",
-    "a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1",
-];
-
-// -------------------- IMPLS -------------------- //
+#[derive(Clone, Copy, PartialEq)]
+pub struct Bitboard(pub u64);
 
 impl Bitboard {
     /// An entirely empty bitboard
@@ -284,54 +230,3 @@ impl BitXorAssign for Bitboard {
         *self = *self ^ rhs;
     }
 }
-
-impl Piece {
-    /// Returns true if the piece attacks by sliding
-    pub fn is_sliding(self) -> bool {
-        use Piece::*;
-
-        match self {
-            Bishop | Rook | Queen => true,
-            Pawn | Knight | King => false,
-        }
-    }
-}
-
-impl Color {
-    /// Returns the opposite color to the given one
-    pub fn opposite(&self) -> Color {
-        match self {
-            Color::White => Color::Black,
-            Color::Black => Color::White,
-        }
-    }
-}
-
-/// Adds `Index` and `IndexMut` traits so that arrays can be indexed by enums
-macro_rules! index_traits {
-    ( $index_type:ty, $array_type:ty ) => {
-        impl Index<$index_type> for [$array_type] {
-            type Output = $array_type;
-
-            fn index(&self, index: $index_type) -> &Self::Output {
-                &self[index as usize]
-            }
-        }
-
-        impl IndexMut<$index_type> for [$array_type] {
-            fn index_mut(&mut self, index: $index_type) -> &mut Self::Output {
-                &mut self[index as usize]
-            }
-        }
-    };
-}
-
-// pieces and colors arrays within Board struct
-index_traits!(Piece, Bitboard);
-index_traits!(Color, Bitboard);
-
-// castling rights within Board struct
-index_traits!(Color, bool);
-
-// initial rook squares for castling updates
-index_traits!(Color, Square);
