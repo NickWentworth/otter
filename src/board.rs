@@ -7,21 +7,19 @@ use crate::{
 };
 use std::fmt::Display;
 
+mod castling;
 mod fen;
 mod position;
 
+use castling::CastleRights;
 use fen::{check_valid_fen, DEFAULT_FEN};
 pub use position::Position;
-
-const INITIAL_KINGSIDE_ROOK_SQUARES: [Square; NUM_COLORS] = [63, 7];
-const INITIAL_QUEENSIDE_ROOK_SQUARES: [Square; NUM_COLORS] = [56, 0];
 
 /// Variables related to conditions of the game
 #[derive(Clone)]
 struct GameState {
     current_turn: Color,
-    king_castle: [bool; NUM_COLORS], // castling availability for each color and king/queen side
-    queen_castle: [bool; NUM_COLORS],
+    castle_rights: CastleRights,
     en_passant_square: Option<Square>,
     halfmove: u32, // halfmove counter, incremented after each color's move
     fullmove: u32, // fullmove counter, only incremented after black's move
@@ -108,8 +106,7 @@ impl Board {
                 } else {
                     Color::Black
                 },
-                king_castle: [fen_parts[2].contains('K'), fen_parts[2].contains('k')],
-                queen_castle: [fen_parts[2].contains('Q'), fen_parts[2].contains('q')],
+                castle_rights: CastleRights::from_fen_segment(fen_parts[2].clone()),
                 en_passant_square: ALGEBRAIC_NOTATION.iter().position(|&s| s == fen_parts[3]),
                 halfmove: fen_parts[4].parse().unwrap(),
                 fullmove: fen_parts[5].parse().unwrap(),
@@ -154,21 +151,6 @@ impl Board {
                 if m.piece != captured_piece {
                     self.pieces[captured_piece].set_bit_at(m.to, false);
                 }
-
-                // update castling rights if taking opposing rook
-                if captured_piece == Piece::Rook {
-                    if self.game_state.king_castle[moving_color.opposite()]
-                        && INITIAL_KINGSIDE_ROOK_SQUARES[moving_color.opposite()] == m.to
-                    {
-                        self.game_state.king_castle[moving_color.opposite()] = false;
-                    }
-
-                    if self.game_state.queen_castle[moving_color.opposite()]
-                        && INITIAL_QUEENSIDE_ROOK_SQUARES[moving_color.opposite()] == m.to
-                    {
-                        self.game_state.queen_castle[moving_color.opposite()] = false;
-                    }
-                }
             }
 
             // combination of capture and promotion
@@ -183,21 +165,6 @@ impl Board {
                 // same as capture flag, don't want both pieces to disappear if capturing the same piece that is being promoted to
                 if captured_piece != promoted_piece {
                     self.pieces[captured_piece].set_bit_at(m.to, false);
-                }
-
-                // update castling rights if taking opposing rook
-                if captured_piece == Piece::Rook {
-                    if self.game_state.king_castle[moving_color.opposite()]
-                        && INITIAL_KINGSIDE_ROOK_SQUARES[moving_color.opposite()] == m.to
-                    {
-                        self.game_state.king_castle[moving_color.opposite()] = false;
-                    }
-
-                    if self.game_state.queen_castle[moving_color.opposite()]
-                        && INITIAL_QUEENSIDE_ROOK_SQUARES[moving_color.opposite()] == m.to
-                    {
-                        self.game_state.queen_castle[moving_color.opposite()] = false;
-                    }
                 }
             }
 
@@ -218,10 +185,6 @@ impl Board {
 
                 self.pieces[Piece::Rook].set_bit_at(m.to + 1, false);
                 self.pieces[Piece::Rook].set_bit_at(m.to - 1, true);
-
-                // finally remove castling rights
-                self.game_state.king_castle[moving_color] = false;
-                self.game_state.queen_castle[moving_color] = false;
             }
 
             // move the rook to the correct square and change castling rights
@@ -232,61 +195,32 @@ impl Board {
 
                 self.pieces[Piece::Rook].set_bit_at(m.to - 2, false);
                 self.pieces[Piece::Rook].set_bit_at(m.to + 1, true);
-
-                // finally remove castling rights
-                self.game_state.king_castle[moving_color] = false;
-                self.game_state.queen_castle[moving_color] = false;
             }
         }
 
-        // castling updates for active-color kingside
-        if self.game_state.king_castle[moving_color] {
-            // any king move will remove castling availability
-            if m.piece == Piece::King {
-                self.game_state.king_castle[moving_color] = false;
-            }
+        // update the game state
+        self.game_state.current_turn = moving_color.opposite();
 
-            // rook move on kingside will only remove kingside castling rights
-            if m.piece == Piece::Rook && INITIAL_KINGSIDE_ROOK_SQUARES[moving_color] == m.from {
-                self.game_state.king_castle[moving_color] = false;
-            }
-        }
-
-        // castling updates for active-color queenside
-        if self.game_state.queen_castle[moving_color] {
-            // any king move will remove castling availability
-            if m.piece == Piece::King {
-                self.game_state.queen_castle[moving_color] = false;
-            }
-
-            // rook move on queenside will only remove queenside castling rights
-            if m.piece == Piece::Rook && INITIAL_QUEENSIDE_ROOK_SQUARES[moving_color] == m.from {
-                self.game_state.queen_castle[moving_color] = false;
-            }
-        }
-
-        // update the rest of game state
-        self.game_state = GameState {
-            current_turn: moving_color.opposite(),
-            king_castle: self.game_state.king_castle, // update castling rights outside of here, too messy with logic
-            queen_castle: self.game_state.queen_castle,
-            en_passant_square: match m.flag {
-                PawnDoubleMove(square) => Some(square),
-                _ => None,
-            },
-            halfmove: match (m.piece, m.flag) {
-                // reset halfmove if pawn push or capture occurred, else increment it
-                // other cases for resetting (such as capture promotions) are still pawn moves, so this should match them all
-                (Piece::Pawn, _) => 0,
-                (_, MoveFlag::Capture(_)) => 0,
-                _ => self.game_state.halfmove + 1,
-            },
-            fullmove: match moving_color {
-                // increment fullmove if moving color is black
-                Color::Black => self.game_state.fullmove + 1,
-                Color::White => self.game_state.fullmove,
-            },
+        self.game_state.en_passant_square = match m.flag {
+            PawnDoubleMove(square) => Some(square),
+            _ => None,
         };
+
+        self.game_state
+            .castle_rights
+            .update_from_move(m, moving_color);
+
+        self.game_state.halfmove = match (m.piece, m.flag) {
+            // reset halfmove if pawn push or capture occurred, else increment it
+            // other cases for resetting (such as capture promotions) are still pawn moves, so this should match them all
+            (Piece::Pawn, _) => 0,
+            (_, MoveFlag::Capture(_)) => 0,
+            _ => self.game_state.halfmove + 1,
+        };
+
+        if moving_color == Color::Black {
+            self.game_state.fullmove += 1;
+        }
     }
 
     /// Un-makes the last move, restoring the proper board state
@@ -367,6 +301,7 @@ impl Board {
         self.game_state = prev_state;
     }
 
+    // TODO - maybe return some kind of reference counted position, in case multiple things use the position at once
     /// Returns a structure used for external functions that contains needed info about the board
     pub fn position(&self) -> Position {
         Position {
@@ -380,8 +315,7 @@ impl Board {
                 None => Bitboard::EMPTY,
             },
 
-            king_castle_rights: self.game_state.king_castle[self.game_state.current_turn],
-            queen_castle_rights: self.game_state.queen_castle[self.game_state.current_turn],
+            castle_rights: self.game_state.castle_rights,
 
             piece_list: self.get_piece_list(),
         }
@@ -472,27 +406,8 @@ impl Display for Board {
         output.push_str(&move_info);
 
         let castle_info = format!(
-            "Castling availability: {} {} {} {} | En passant square: {}\n",
-            if self.game_state.king_castle[Color::White] {
-                "K"
-            } else {
-                "-"
-            },
-            if self.game_state.queen_castle[Color::White] {
-                "Q"
-            } else {
-                "-"
-            },
-            if self.game_state.king_castle[Color::Black] {
-                "k"
-            } else {
-                "-"
-            },
-            if self.game_state.queen_castle[Color::Black] {
-                "q"
-            } else {
-                "-"
-            },
+            "Castling availability: {} | En passant square: {}\n",
+            self.game_state.castle_rights.to_fen_segment(),
             match self.game_state.en_passant_square {
                 Some(square) => ALGEBRAIC_NOTATION[square].to_string(),
                 None => "-".to_string(),

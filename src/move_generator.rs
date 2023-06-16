@@ -362,7 +362,7 @@ impl MoveGenerator {
         }
 
         // try to generate castling moves
-        if position.king_castle_rights {
+        if position.active_kingside_rights() {
             // check if squares between king and rook are empty on the kingside
             if (CastleMask::KINGSIDE_EMPTY[position.active_color] & position.all_pieces())
                 .is_empty()
@@ -380,7 +380,7 @@ impl MoveGenerator {
             }
         }
 
-        if position.queen_castle_rights {
+        if position.active_queenside_rights() {
             // check if squares between king and rook are empty on the queenside
             if (CastleMask::QUEENSIDE_EMPTY[position.active_color] & position.all_pieces())
                 .is_empty()
