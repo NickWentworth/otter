@@ -1,5 +1,6 @@
 mod board;
 mod core;
+mod evaluate;
 mod move_generator;
 mod tests;
 
@@ -9,5 +10,7 @@ fn main() {
     let mut b = board::Board::new(fen);
     let mg = move_generator::MoveGenerator::new();
 
-    println!("{}", tests::perft_divide(&mg, &mut b, 5));
+    println!("{}", tests::perft(&mg, &mut b, 5));
+
+    println!("{}", evaluate::evaluate(b.position()));
 }
