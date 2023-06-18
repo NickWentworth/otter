@@ -16,7 +16,7 @@ pub fn perft(move_generator: &MoveGenerator, board: &mut Board, depth: u8) -> u6
             let mut total = 0;
 
             for m in move_generator.generate_moves(board) {
-                board.make_move(&m);
+                board.make_move(m);
                 total += perft(move_generator, board, d - 1);
                 board.unmake_move();
             }
@@ -34,7 +34,7 @@ pub fn perft_divide(move_generator: &MoveGenerator, board: &mut Board, depth: u8
         let mut total = 0;
 
         for m in move_generator.generate_moves(board) {
-            board.make_move(&m);
+            board.make_move(m);
 
             let this_move_total = perft(move_generator, board, depth - 1);
             total += this_move_total;

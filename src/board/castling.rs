@@ -82,7 +82,7 @@ impl CastleRights {
     }
 
     /// Updates the current castling rights based on a move and color making that move
-    pub fn update_from_move(&mut self, mov: &Move, moving_color: Color) {
+    pub fn update_from_move(&mut self, mov: Move, moving_color: Color) {
         use CastleSide::*;
         use MoveFlag::*;
         use Piece::*;

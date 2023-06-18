@@ -16,7 +16,7 @@ use fen::{check_valid_fen, DEFAULT_FEN};
 pub use position::Position;
 
 /// Variables related to conditions of the game
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 struct GameState {
     current_turn: Color,
     castle_rights: CastleRights,
@@ -118,9 +118,9 @@ impl Board {
     /// Makes the given move and updates game state accordingly
     ///
     /// Assumes `m` is a valid and legal move
-    pub fn make_move(&mut self, m: &Move) {
+    pub fn make_move(&mut self, m: Move) {
         // push move and current game state to stack
-        self.history.push((m.clone(), self.game_state.clone()));
+        self.history.push((m, self.game_state));
 
         // store locally because of borrow checker
         let moving_color = self.game_state.current_turn;
