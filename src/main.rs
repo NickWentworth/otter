@@ -12,5 +12,5 @@ fn main() {
 
     println!("{}", tests::perft(&mg, &mut b, 5));
 
-    println!("{}", evaluate::evaluate(b.position()));
+    println!("{}", evaluate::evaluate(&b));
 }

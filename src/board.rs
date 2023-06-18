@@ -9,11 +9,9 @@ use std::fmt::Display;
 
 mod castling;
 mod fen;
-mod position;
 
-use castling::CastleRights;
+use castling::{CastleRights, CastleSide};
 use fen::{check_valid_fen, DEFAULT_FEN};
-pub use position::Position;
 
 /// Variables related to conditions of the game
 #[derive(Clone, Copy)]
@@ -30,6 +28,9 @@ pub struct Board {
     pieces: [Bitboard; NUM_PIECES],
     colors: [Bitboard; NUM_COLORS],
     game_state: GameState,
+
+    // alternate piece location representation allowing indexing squares to find the piece on that square
+    piece_list: [Option<Piece>; BOARD_SIZE],
 
     // stack containing moves and matching info needed to unmake the previously made move
     history: Vec<(Move, GameState)>,
@@ -97,7 +98,7 @@ impl Board {
             }
         }
 
-        Board {
+        let mut b = Board {
             pieces,
             colors,
             game_state: GameState {
@@ -111,8 +112,13 @@ impl Board {
                 halfmove: fen_parts[4].parse().unwrap(),
                 fullmove: fen_parts[5].parse().unwrap(),
             },
+            piece_list: [None; BOARD_SIZE],
             history: Vec::new(),
-        }
+        };
+
+        b.piece_list = b.build_piece_list();
+
+        b
     }
 
     /// Makes the given move and updates game state accordingly
@@ -221,6 +227,9 @@ impl Board {
         if moving_color == Color::Black {
             self.game_state.fullmove += 1;
         }
+
+        // refresh the piece list
+        self.piece_list = self.build_piece_list();
     }
 
     /// Un-makes the last move, restoring the proper board state
@@ -299,26 +308,60 @@ impl Board {
         }
 
         self.game_state = prev_state;
+
+        self.piece_list = self.build_piece_list();
     }
 
-    // TODO - maybe return some kind of reference counted position, in case multiple things use the position at once
-    /// Returns a structure used for external functions that contains needed info about the board
-    pub fn position(&self) -> Position {
-        Position {
-            active_color: self.game_state.current_turn,
+    /// Returns the piece type at the given square or `None` if no piece is at the square
+    pub fn piece_at(&self, square: Square) -> Option<Piece> {
+        self.piece_list[square]
+    }
 
-            active_pieces: self.colors[self.game_state.current_turn],
-            inactive_pieces: self.colors[self.game_state.current_turn.opposite()],
+    /// Returns the current moving color
+    pub fn active_color(&self) -> Color {
+        self.game_state.current_turn
+    }
 
-            en_passant: match self.game_state.en_passant_square {
-                Some(square) => Bitboard::shifted_board(square),
-                None => Bitboard::EMPTY,
-            },
+    /// Returns the current non-moving color
+    pub fn inactive_color(&self) -> Color {
+        self.game_state.current_turn.opposite()
+    }
 
-            castle_rights: self.game_state.castle_rights,
+    /// Returns a bitboard with bits wherever there are active pieces
+    pub fn active_pieces(&self) -> Bitboard {
+        self.colors[self.game_state.current_turn]
+    }
 
-            piece_list: self.get_piece_list(),
+    /// Returns a bitboard with bits wherever there are inactive pieces
+    pub fn inactive_pieces(&self) -> Bitboard {
+        self.colors[self.game_state.current_turn.opposite()]
+    }
+
+    /// Returns a bitboard with bits wherever there are any pieces, either color
+    pub fn all_pieces(&self) -> Bitboard {
+        self.colors[Color::White] | self.colors[Color::Black]
+    }
+
+    /// Returns a board with a bit at the en passant capture square, if it exists
+    pub fn en_passant_board(&self) -> Bitboard {
+        match self.game_state.en_passant_square {
+            Some(square) => Bitboard::shifted_board(square),
+            None => Bitboard::EMPTY,
         }
+    }
+
+    /// Returns kingside rights of active side
+    pub fn active_kingside_rights(&self) -> bool {
+        self.game_state
+            .castle_rights
+            .get(self.game_state.current_turn, CastleSide::Kingside)
+    }
+
+    /// Returns queenside rights of active side
+    pub fn active_queenside_rights(&self) -> bool {
+        self.game_state
+            .castle_rights
+            .get(self.game_state.current_turn, CastleSide::Queenside)
     }
 
     /// Generates a bitboard of pieces matching the given type that can move this turn
@@ -332,9 +375,8 @@ impl Board {
     }
 
     /// Generates a piece list, containing (if there exists) the piece at every square
-    ///
-    /// Useful when we have an index of a square and want to know the piece it exists at
-    fn get_piece_list(&self) -> [Option<Piece>; BOARD_SIZE] {
+    // TODO - incrementally update this list instead of generating it fresh every time
+    fn build_piece_list(&self) -> [Option<Piece>; BOARD_SIZE] {
         let mut list = [None; BOARD_SIZE];
 
         for piece in ALL_PIECES {
