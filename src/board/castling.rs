@@ -53,6 +53,9 @@ impl CastleRights {
         }
     }
 
+    /// Given a `Color` and `CastleSide`, sets castling rights
+    ///
+    /// Generally only used for internal castling management
     fn set(&mut self, color: Color, side: CastleSide, rights: bool) {
         use CastleSide::*;
         use Color::*;
@@ -62,9 +65,10 @@ impl CastleRights {
             (White, Queenside) => self.white_queenside = rights,
             (Black, Kingside) => self.black_kingside = rights,
             (Black, Queenside) => self.black_queenside = rights,
-        }
+        };
     }
 
+    /// Returns the correct initial rook square index for a given `Color` and `CastleSide`
     fn initial_rook_square(color: Color, side: CastleSide) -> Square {
         use CastleSide::*;
         use Color::*;

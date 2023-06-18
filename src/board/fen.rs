@@ -25,8 +25,6 @@ pub fn check_valid_fen(fen: &String) -> bool {
     let mut expanded_fen = fen.clone();
     expanded_fen.replace_range(0..first_space, &piece_data);
 
-    // print!("{}", expanded_fen);
-
     match regex {
         Err(_) => false,
         Ok(valid_regex) => valid_regex.is_match(&expanded_fen),

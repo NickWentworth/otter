@@ -157,7 +157,7 @@ impl Shl<isize> for Bitboard {
 }
 impl ShlAssign<isize> for Bitboard {
     fn shl_assign(&mut self, rhs: isize) {
-        *self = *self << rhs
+        *self = *self << rhs;
     }
 }
 
@@ -182,7 +182,7 @@ impl Shl<Square> for Bitboard {
 }
 impl ShlAssign<Square> for Bitboard {
     fn shl_assign(&mut self, rhs: Square) {
-        *self = *self << rhs
+        *self = *self << rhs;
     }
 }
 
