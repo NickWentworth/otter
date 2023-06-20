@@ -1,3 +1,4 @@
+mod evaluate;
 mod move_score;
 
 // searching algorithms

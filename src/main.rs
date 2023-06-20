@@ -1,6 +1,5 @@
 mod board;
 mod core;
-mod evaluate;
 mod move_generator;
 mod search;
 mod tests;
