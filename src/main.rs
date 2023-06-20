@@ -2,6 +2,7 @@ mod board;
 mod core;
 mod evaluate;
 mod move_generator;
+mod search;
 mod tests;
 
 fn main() {
@@ -11,6 +12,4 @@ fn main() {
     let mg = move_generator::MoveGenerator::new();
 
     println!("{}", tests::perft(&mg, &mut b, 5));
-
-    println!("{}", evaluate::evaluate(&b));
 }

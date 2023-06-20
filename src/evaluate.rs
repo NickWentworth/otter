@@ -1,10 +1,8 @@
-use crate::{board::Board, core::Color};
+use crate::{board::Board, core::Color, search::Score};
 
 /// Evaluate the board position and assign a value representing a side's advantage
-///
-/// Positive implies white is winning, negative implies black is winning
-pub fn evaluate(board: &Board) -> f32 {
-    let mut material = 0.0;
+pub fn evaluate(board: &Board) -> Score {
+    let mut material = 0;
 
     let (white, black) = match board.active_color() {
         Color::White => (board.active_pieces(), board.inactive_pieces()),
