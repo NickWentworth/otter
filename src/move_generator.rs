@@ -395,6 +395,35 @@ impl MoveGenerator {
         moves
     }
 
+    /// Determines if in the current board state, the active king is in check
+    pub fn in_check(&self, board: &Board) -> bool {
+        use Piece::*;
+
+        let king_position = board.active_piece_board(King);
+
+        for square in board.inactive_pieces() {
+            let piece = board.piece_at(square).unwrap();
+
+            let opposing_attacks = match piece {
+                King => Bitboard::EMPTY, // opposing king cannot put our king in check
+
+                Knight => self.knight_moves[square],
+
+                Pawn => self.pawn_attacks[&board.inactive_color()][square],
+
+                Bishop | Rook | Queen => {
+                    self.generate_sliding_attack(square, piece, board.all_pieces())
+                }
+            };
+
+            if !(opposing_attacks & king_position).is_empty() {
+                return true;
+            }
+        }
+
+        false
+    }
+
     /// Generates a board of all un-attacked squares that are safe for king to move into, including undefended opposing pieces
     fn get_safe_king_squares(&self, king_square: Square, board: &Board) -> Bitboard {
         use Piece::*;
