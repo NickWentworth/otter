@@ -1,8 +1,7 @@
 use crate::{
     board::Board,
-    core::{Bitboard, Color, Piece, Square, BOARD_SIZE, PROMOTION_PIECES},
+    core::{Bitboard, Color, Piece, Square, BOARD_SIZE, NUM_COLORS, PROMOTION_PIECES},
 };
-use std::collections::HashMap;
 
 mod direction;
 mod masks;
@@ -23,9 +22,9 @@ pub struct MoveGenerator {
     knight_moves: [Bitboard; BOARD_SIZE],
 
     // pawn moves are split between single pushes, double pushes, and attacks
-    pawn_single: HashMap<Color, [Bitboard; BOARD_SIZE]>,
-    pawn_double: HashMap<Color, [Bitboard; BOARD_SIZE]>,
-    pawn_attacks: HashMap<Color, [Bitboard; BOARD_SIZE]>,
+    pawn_single: [[Bitboard; BOARD_SIZE]; NUM_COLORS],
+    pawn_double: [[Bitboard; BOARD_SIZE]; NUM_COLORS],
+    pawn_attacks: [[Bitboard; BOARD_SIZE]; NUM_COLORS],
 
     // sliding move lookup boards
     diagonal_attacks: Vec<DirectionAttackPair>,
@@ -83,7 +82,7 @@ impl MoveGenerator {
             attackers |= self.generate_sliding_attack(king_square, Queen, board.all_pieces())
                 & board.inactive_piece_board(Queen);
             attackers |= self.knight_moves[king_square] & board.inactive_piece_board(Knight);
-            attackers |= self.pawn_attacks[&board.active_color()][king_square]
+            attackers |= self.pawn_attacks[board.active_color()][king_square]
                 & board.inactive_piece_board(Pawn);
 
             // based on how many pieces attack the king, there are different cases for movable squares
@@ -183,7 +182,7 @@ impl MoveGenerator {
             // pawn moves are wacky so generate these separately
             if moving_piece == Pawn {
                 // pawn pushes
-                let single_move = self.pawn_single[&board.active_color()][from_square]
+                let single_move = self.pawn_single[board.active_color()][from_square]
                     & pin_mask
                     & !board.all_pieces();
 
@@ -191,7 +190,7 @@ impl MoveGenerator {
                 let double_move = if single_move.is_empty() {
                     Bitboard::EMPTY
                 } else {
-                    self.pawn_double[&board.active_color()][from_square]
+                    self.pawn_double[board.active_color()][from_square]
                         & pin_mask
                         & !board.all_pieces()
                 };
@@ -238,7 +237,7 @@ impl MoveGenerator {
                 }
 
                 // now handle pawn attacks
-                let normal_attacks = self.pawn_attacks[&board.active_color()][from_square]
+                let normal_attacks = self.pawn_attacks[board.active_color()][from_square]
                     & capture_mask // pawn attack will only count as a capture
                     & pin_mask // and move according to pins
                     & board.inactive_pieces(); // and can only attack opposing pieces
@@ -268,8 +267,8 @@ impl MoveGenerator {
                 }
 
                 // finally, handle en passant attacks
-                let en_passant_attack = self.pawn_attacks[&board.active_color()][from_square]
-                    & board.en_passant_board();
+                let en_passant_attack =
+                    self.pawn_attacks[board.active_color()][from_square] & board.en_passant_board();
 
                 // en passants can have hard-to-find pins
                 // since they are uncommon we can just check if the king is in check after the move
@@ -409,7 +408,7 @@ impl MoveGenerator {
 
                 Knight => self.knight_moves[square],
 
-                Pawn => self.pawn_attacks[&board.inactive_color()][square],
+                Pawn => self.pawn_attacks[board.inactive_color()][square],
 
                 Bishop | Rook | Queen => {
                     self.generate_sliding_attack(square, piece, board.all_pieces())
@@ -438,7 +437,7 @@ impl MoveGenerator {
             let current_piece_attack = match piece {
                 King => self.king_moves[square],
                 Knight => self.knight_moves[square],
-                Pawn => self.pawn_attacks[&board.inactive_color()][square],
+                Pawn => self.pawn_attacks[board.inactive_color()][square],
 
                 // importantly, the king square is not taken into account in the attacked square generation for sliding pieces
                 // if the king is attacked by a sliding piece, it should not be able to move backwards further into the piece's attack range

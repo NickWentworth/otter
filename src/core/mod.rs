@@ -38,3 +38,6 @@ index_traits!(Color, bool);
 
 // initial rook squares for castling updates in Board struct
 index_traits!(Color, Square);
+
+// bitboard lookup tables
+index_traits!(Color, [Bitboard; BOARD_SIZE]);
