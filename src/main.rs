@@ -9,5 +9,6 @@ fn main() {
 
     let mut b = board::Board::new(fen);
 
-    println!("{}", search::minimax(&mut b, 5));
+    let (mov, score) = search::alpha_beta(&mut b, 5);
+    println!("{}: {}", mov, score);
 }

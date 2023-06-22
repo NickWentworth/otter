@@ -1,16 +1,16 @@
+mod alpha_beta;
 mod evaluate;
 mod tables;
 
-// searching algorithms
-mod minimax;
-// TODO - alpha-beta
+pub use alpha_beta::alpha_beta;
 
-pub use minimax::minimax;
-
-/// Represents the score of the board, + implies white is ahead, - implies black is ahead
+/// Represents the score of the board, where a positive number implies moving side is ahead
 pub type Score = i32;
 
-pub const CHECKMATE_WHITE: Score = Score::MAX;
-pub const CHECKMATE_BLACK: Score = Score::MIN;
+/// Score pertaining to a checkmate
+///
+/// Need +1 because `-Score::MIN` results in an overflow, as absolute value of Score::MAX < Score::MIN
+pub const CHECKMATE: Score = Score::MIN + 1;
 
+/// Score pertaining to a draw
 pub const DRAW: Score = 0;
