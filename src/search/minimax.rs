@@ -8,6 +8,7 @@ use super::{evaluate::evaluate, Score, CHECKMATE_BLACK, CHECKMATE_WHITE, DRAW};
 
 /// Recursively chooses moves based on the best other player's best response to the given move
 // TODO - its a bit ugly to map each move to a score in this way, also need to factor in checkmates and draws
+// TODO - fix search function now that advantage is based on moving color, not always + for white, - for black
 pub fn minimax(board: &mut Board, depth: u8) -> Move {
     use Color::*;
 
