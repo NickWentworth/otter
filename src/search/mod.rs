@@ -1,4 +1,5 @@
 mod evaluate;
+mod tables;
 
 // searching algorithms
 mod minimax;
