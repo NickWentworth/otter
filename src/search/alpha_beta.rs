@@ -3,7 +3,7 @@ use crate::{
     move_generator::{Move, MoveGenerator},
 };
 
-use super::{evaluate::evaluate, Score, CHECKMATE, DRAW};
+use super::{evaluate::evaluate, ordering::order_moves, Score, CHECKMATE, DRAW};
 
 // TODO - add in move ordering so that more impactful moves are checked first
 // TODO - it seems difficult for the engine to finish out a game, even after it knows there is a checkmate
@@ -45,7 +45,7 @@ fn recurse(
     }
 
     // else, generate moves and score them recursively
-    let moves = move_generator.generate_moves(board);
+    let mut moves = move_generator.generate_moves(board);
 
     // if there are no moves generated, the game is over at this point
     if moves.is_empty() {
@@ -55,6 +55,9 @@ fn recurse(
             return DRAW;
         }
     }
+
+    // order the moves based on approximate importance to help remove other bad moves early
+    order_moves(&mut moves);
 
     let mut current_alpha = alpha;
 

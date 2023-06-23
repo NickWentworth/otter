@@ -1,5 +1,6 @@
 mod alpha_beta;
 mod evaluate;
+mod ordering;
 mod tables;
 
 pub use alpha_beta::alpha_beta;
