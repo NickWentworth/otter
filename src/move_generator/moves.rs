@@ -22,6 +22,17 @@ pub struct Move {
     pub flag: MoveFlag,
 }
 
+impl Move {
+    pub fn is_capture(self) -> bool {
+        use MoveFlag::*;
+
+        match self.flag {
+            Capture(_) | CapturePromotion(_, _) | EnPassantCapture(_) => true,
+            _ => false,
+        }
+    }
+}
+
 impl Display for Move {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(

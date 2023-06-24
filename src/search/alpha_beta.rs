@@ -5,7 +5,6 @@ use crate::{
 
 use super::{evaluate::evaluate, ordering::order_moves, Score, CHECKMATE, DRAW};
 
-// TODO - add in move ordering so that more impactful moves are checked first
 // TODO - it seems difficult for the engine to finish out a game, even after it knows there is a checkmate
 
 /// Returns an estimation of the best move by recursively checking opponent's best response is to this move
@@ -40,8 +39,7 @@ fn recurse(
 ) -> Score {
     // base case - if depth is 0, evaluate the board state
     if depth == 0 {
-        // TODO - apply quiescence search to ensure the next response is not about to take our piece
-        return evaluate(board);
+        return quiesce(move_generator, board, alpha, beta);
     }
 
     // else, generate moves and score them recursively
@@ -79,5 +77,51 @@ fn recurse(
     }
 
     // return the highest score, the one that we will choose to make
+    current_alpha
+}
+
+/// Final step of alpha beta search, before evaluation we want to ensure that our moved piece is not about to be captured
+///
+/// Searches down all capture-only paths until a quiet position is found for each
+fn quiesce(
+    move_generator: &MoveGenerator,
+    board: &mut Board,
+    alpha: Score, // represents the worst possible case for the moving side
+    beta: Score,  // represents the best possible case for the non-moving side
+) -> Score {
+    // first get the current board evaluation
+    let current_score = evaluate(board);
+    
+    // if the score of this board is higher than the best guarantee (worse for the previous color), they wouldn't make this capture
+    if current_score >= beta {
+        return beta;
+    }
+
+    // otherwise, the best case for the active color is max between this and previous best case
+    let mut current_alpha = Score::max(current_score, alpha);
+
+    // TODO - add capture-only generation to move generator, this filtering is too slow
+    let mut captures: Vec<Move> = move_generator
+        .generate_moves(board)
+        .iter()
+        .filter(|mov| mov.is_capture())
+        .map(|mov| *mov)
+        .collect();
+
+    order_moves(&mut captures);
+
+    // this is same as alpha beta search
+    for mov in captures {
+        board.make_move(mov);
+        let score = -quiesce(move_generator, board, -beta, -current_alpha);
+        board.unmake_move();
+
+        if score >= beta {
+            return beta;
+        }
+
+        current_alpha = Score::max(score, current_alpha);
+    }
+
     current_alpha
 }
