@@ -1,7 +1,4 @@
-use crate::{
-    board::Board,
-    move_generator::{Move, MoveGenerator},
-};
+use crate::board::{Board, Move};
 
 use super::{evaluate::evaluate, ordering::order_moves, Score, CHECKMATE, DRAW};
 
@@ -13,12 +10,10 @@ use super::{evaluate::evaluate, ordering::order_moves, Score, CHECKMATE, DRAW};
 ///
 /// Ensure that the game is not over before calling alpha beta search, as it expects valid moves to be able to be made
 pub fn alpha_beta(board: &mut Board, depth: u8) -> (Move, Score) {
-    let move_generator = MoveGenerator::new();
-
     // generate a tuple of moves along with their scores
-    let scored_moves = move_generator.generate_moves(board).into_iter().map(|mov| {
+    let scored_moves = board.generate_moves().into_iter().map(|mov| {
         board.make_move(mov);
-        let score = -recurse(&move_generator, board, CHECKMATE, -CHECKMATE, depth - 1);
+        let score = -recurse(board, CHECKMATE, -CHECKMATE, depth - 1);
         board.unmake_move();
         (mov, score)
     });
@@ -31,7 +26,6 @@ pub fn alpha_beta(board: &mut Board, depth: u8) -> (Move, Score) {
 
 /// Recursive step of alpha beta algorithm
 fn recurse(
-    move_generator: &MoveGenerator,
     board: &mut Board,
     alpha: Score, // represents the worst possible case for the moving side
     beta: Score,  // represents the best possible case for the non-moving side
@@ -39,15 +33,15 @@ fn recurse(
 ) -> Score {
     // base case - if depth is 0, evaluate the board state
     if depth == 0 {
-        return quiesce(move_generator, board, alpha, beta);
+        return quiesce(board, alpha, beta);
     }
 
     // else, generate moves and score them recursively
-    let mut moves = move_generator.generate_moves(board);
+    let mut moves = board.generate_moves();
 
     // if there are no moves generated, the game is over at this point
     if moves.is_empty() {
-        if move_generator.in_check(board) {
+        if board.in_check() {
             return CHECKMATE;
         } else {
             return DRAW;
@@ -63,7 +57,7 @@ fn recurse(
     for mov in moves {
         // make the move and get the enemy's best response to that move, in terms of our evaluation
         board.make_move(mov);
-        let score = -recurse(move_generator, board, -beta, -current_alpha, depth - 1);
+        let score = -recurse(board, -beta, -current_alpha, depth - 1);
         board.unmake_move();
 
         // if the evaluation for this move is better than the opponent's current best option,
@@ -84,14 +78,13 @@ fn recurse(
 ///
 /// Searches down all capture-only paths until a quiet position is found for each
 fn quiesce(
-    move_generator: &MoveGenerator,
     board: &mut Board,
     alpha: Score, // represents the worst possible case for the moving side
     beta: Score,  // represents the best possible case for the non-moving side
 ) -> Score {
     // first get the current board evaluation
     let current_score = evaluate(board);
-    
+
     // if the score of this board is higher than the best guarantee (worse for the previous color), they wouldn't make this capture
     if current_score >= beta {
         return beta;
@@ -100,20 +93,13 @@ fn quiesce(
     // otherwise, the best case for the active color is max between this and previous best case
     let mut current_alpha = Score::max(current_score, alpha);
 
-    // TODO - add capture-only generation to move generator, this filtering is too slow
-    let mut captures: Vec<Move> = move_generator
-        .generate_moves(board)
-        .iter()
-        .filter(|mov| mov.is_capture())
-        .map(|mov| *mov)
-        .collect();
-
+    let mut captures = board.generate_captures();
     order_moves(&mut captures);
 
     // this is same as alpha beta search
     for mov in captures {
         board.make_move(mov);
-        let score = -quiesce(move_generator, board, -beta, -current_alpha);
+        let score = -quiesce(board, -beta, -current_alpha);
         board.unmake_move();
 
         if score >= beta {

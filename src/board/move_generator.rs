@@ -7,12 +7,13 @@ mod direction;
 mod masks;
 mod moves;
 
+pub use moves::{Move, MoveFlag};
+
 use direction::{
     generate_king_moves, generate_knight_moves, generate_pawn_attacks, generate_pawn_double_moves,
     generate_pawn_single_moves, generate_sliding_attacks, Direction,
 };
 use masks::{CastleMask, RankPositionMask};
-pub use moves::{Move, MoveFlag};
 
 type DirectionAttackPair = (isize, [Bitboard; BOARD_SIZE]);
 

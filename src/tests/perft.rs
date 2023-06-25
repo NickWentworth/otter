@@ -1,23 +1,23 @@
-use crate::{board::Board, move_generator::MoveGenerator};
+use crate::board::Board;
 
 /// Returns the number of positions possible from the given board state and given depth to search
 ///
 /// Requires a pre-initialized move generator so that it can easily be re-used
-pub fn perft(move_generator: &MoveGenerator, board: &mut Board, depth: u8) -> u64 {
+pub fn perft(board: &mut Board, depth: u8) -> u64 {
     match depth {
         // count 1 for this leaf node
         0 => 1,
 
         // don't need to make/un-make these moves, just count all leaf nodes from this position
-        1 => move_generator.generate_moves(board).len() as u64,
+        1 => board.generate_moves().len() as u64,
 
         // regular case for perft
         d => {
             let mut total = 0;
 
-            for m in move_generator.generate_moves(board) {
+            for m in board.generate_moves() {
                 board.make_move(m);
-                total += perft(move_generator, board, d - 1);
+                total += perft(board, d - 1);
                 board.unmake_move();
             }
 
@@ -27,16 +27,16 @@ pub fn perft(move_generator: &MoveGenerator, board: &mut Board, depth: u8) -> u6
 }
 
 /// Returns identical value to perft function, but prints the perft of every move from starting position
-pub fn perft_divide(move_generator: &MoveGenerator, board: &mut Board, depth: u8) -> u64 {
+pub fn perft_divide(board: &mut Board, depth: u8) -> u64 {
     if depth == 0 {
         1
     } else {
         let mut total = 0;
 
-        for m in move_generator.generate_moves(board) {
+        for m in board.generate_moves() {
             board.make_move(m);
 
-            let this_move_total = perft(move_generator, board, depth - 1);
+            let this_move_total = perft(board, depth - 1);
             total += this_move_total;
             println!("{}: {}", m, this_move_total);
 
@@ -50,7 +50,7 @@ pub fn perft_divide(move_generator: &MoveGenerator, board: &mut Board, depth: u8
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{board::Board, move_generator::MoveGenerator};
+    use crate::board::Board;
 
     /// Varying positions with expected values from the perft function at a given depth
     ///
@@ -77,13 +77,11 @@ mod tests {
 
     #[test]
     fn test_perft() {
-        let mg = MoveGenerator::new();
-
         for (fen, depth, expected) in TEST_CASES {
             let mut b = Board::new(fen.to_string());
 
             assert_eq!(
-                perft(&mg, &mut b, depth),
+                perft(&mut b, depth),
                 expected,
                 "Failed on position {} at depth {}",
                 fen,

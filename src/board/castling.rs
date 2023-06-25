@@ -1,8 +1,7 @@
-use crate::{
-    core::{Color, Piece, Square},
-    move_generator::{Move, MoveFlag},
-};
+use crate::core::{Color, Piece, Square};
 use std::fmt::Display;
+
+use super::{Move, MoveFlag};
 
 #[derive(Clone, Copy)]
 pub enum CastleSide {

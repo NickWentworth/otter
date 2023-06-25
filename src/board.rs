@@ -1,17 +1,18 @@
-use crate::{
-    core::{
-        Bitboard, Color, Piece, Square, ALGEBRAIC_NOTATION, ALL_PIECES, BOARD_SIZE, NUM_COLORS,
-        NUM_PIECES,
-    },
-    move_generator::{Move, MoveFlag},
+use crate::core::{
+    Bitboard, Color, Piece, Square, ALGEBRAIC_NOTATION, ALL_PIECES, BOARD_SIZE, NUM_COLORS,
+    NUM_PIECES,
 };
 use std::fmt::Display;
 
 mod castling;
 mod fen;
+mod move_generator;
+
+pub use move_generator::{Move, MoveFlag};
 
 use castling::{CastleRights, CastleSide};
 use fen::{check_valid_fen, DEFAULT_FEN};
+use move_generator::MoveGenerator;
 
 /// Variables related to conditions of the game
 #[derive(Clone, Copy)]
@@ -34,6 +35,8 @@ pub struct Board {
 
     // stack containing moves and matching info needed to unmake the previously made move
     history: Vec<(Move, GameState)>,
+
+    move_generator: MoveGenerator,
 }
 
 impl Board {
@@ -114,6 +117,7 @@ impl Board {
             },
             piece_list: [None; BOARD_SIZE],
             history: Vec::new(),
+            move_generator: MoveGenerator::new(),
         };
 
         b.piece_list = b.build_piece_list();
@@ -310,6 +314,26 @@ impl Board {
         self.game_state = prev_state;
 
         self.piece_list = self.build_piece_list();
+    }
+
+    /// Generates all legal moves from this position
+    pub fn generate_moves(&self) -> Vec<Move> {
+        self.move_generator.generate_moves(&self)
+    }
+
+    /// Generates all legal capture moves from this position
+    // TODO - add capture-only generation to move generator, this filtering is too slow
+    pub fn generate_captures(&self) -> Vec<Move> {
+        self.move_generator
+            .generate_moves(&self)
+            .into_iter()
+            .filter(|mov| mov.is_capture())
+            .collect()
+    }
+
+    /// Returns whether or not the active color is in check in this position
+    pub fn in_check(&self) -> bool {
+        self.move_generator.in_check(&self)
     }
 
     /// Returns the piece type at the given square or `None` if no piece is at the square

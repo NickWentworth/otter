@@ -1,6 +1,6 @@
 use crate::{
     core::Piece,
-    move_generator::{Move, MoveFlag},
+    board::{Move, MoveFlag},
 };
 
 // TODO - as of now, sort_by_cached_key is slower than sort_by_key, if this importance calculation grows, it may change
