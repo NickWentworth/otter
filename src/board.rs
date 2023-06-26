@@ -7,12 +7,14 @@ use std::{fmt::Display, rc::Rc};
 mod castling;
 mod fen;
 mod move_generator;
+mod zobrist;
 
 pub use move_generator::{Move, MoveFlag};
 
 use castling::{CastleRights, CastleSide};
 use fen::{check_valid_fen, DEFAULT_FEN};
 use move_generator::MoveGenerator;
+use zobrist::{ZobristValues, ZobristHash};
 
 /// Variables related to conditions of the game
 #[derive(Clone, Copy)]
@@ -36,7 +38,12 @@ pub struct Board {
     // stack containing moves and matching info needed to unmake the previously made move
     history: Vec<(Move, GameState)>,
 
+    // move generator structure to store move lookup tables
     move_generator: Rc<MoveGenerator>,
+
+    // strategy to hash board state for transposition tables 
+    zobrist_values: Rc<ZobristValues>,
+    zobrist_hash: ZobristHash,
 }
 
 impl Board {
@@ -118,9 +125,12 @@ impl Board {
             piece_list: [None; BOARD_SIZE],
             history: Vec::new(),
             move_generator: Rc::new(MoveGenerator::new()),
+            zobrist_values: Rc::new(ZobristValues::new()),
+            zobrist_hash: 0,
         };
 
         b.piece_list = b.build_piece_list();
+        b.zobrist_hash = b.build_zobrist();
 
         b
     }
@@ -483,6 +493,47 @@ impl Board {
 
         list
     }
+
+    /// Generates a zobrist hash value representing the current board state
+    // TODO - incrementally update this hash instead of generating it fresh every time
+    pub fn build_zobrist(&self) -> ZobristHash {
+        use Color::*;
+        use CastleSide::*;
+
+        let mut hash = 0;
+
+        // squares
+        for (square, piece_option) in self.piece_list.iter().enumerate() {
+            match piece_option {
+                Some(piece) => {
+                    let color = match self.colors[Color::White].bit_at(square) {
+                        true => Color::White,
+                        false => Color::Black,
+                    };
+                    
+                    hash ^= self.zobrist_values.piece(square, *piece, color);
+                }
+                None => (),
+            }
+        }
+
+        // castling
+        for color in [White, Black] {
+            for castle_side in [Kingside, Queenside] {
+                if self.game_state.castle_rights.get(color, castle_side) {
+                    hash ^= self.zobrist_values.castling(castle_side, color);
+                }
+            }
+        }
+
+        // active turn
+        hash ^= self.zobrist_values.active(self.game_state.current_turn);
+
+        // en passant
+        hash ^= self.zobrist_values.en_passant(self.game_state.en_passant_square);
+
+        hash
+    }
 }
 
 impl Clone for Board {
@@ -495,6 +546,8 @@ impl Clone for Board {
             piece_list: self.piece_list,
             history: Vec::new(),
             move_generator: Rc::clone(&self.move_generator),
+            zobrist_values: Rc::clone(&self.zobrist_values),
+            zobrist_hash: self.zobrist_hash,
         }
     }
 }

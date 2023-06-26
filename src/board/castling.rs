@@ -8,6 +8,7 @@ pub enum CastleSide {
     Kingside,
     Queenside,
 }
+pub const NUM_CASTLE_SIDES: usize = 2;
 
 #[derive(Clone, Copy)]
 pub struct CastleRights {
