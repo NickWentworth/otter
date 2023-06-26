@@ -2,7 +2,7 @@ use crate::core::{
     Bitboard, Color, Piece, Square, ALGEBRAIC_NOTATION, ALL_PIECES, BOARD_SIZE, NUM_COLORS,
     NUM_PIECES,
 };
-use std::fmt::Display;
+use std::{fmt::Display, rc::Rc};
 
 mod castling;
 mod fen;
@@ -36,7 +36,7 @@ pub struct Board {
     // stack containing moves and matching info needed to unmake the previously made move
     history: Vec<(Move, GameState)>,
 
-    move_generator: MoveGenerator,
+    move_generator: Rc<MoveGenerator>,
 }
 
 impl Board {
@@ -117,7 +117,7 @@ impl Board {
             },
             piece_list: [None; BOARD_SIZE],
             history: Vec::new(),
-            move_generator: MoveGenerator::new(),
+            move_generator: Rc::new(MoveGenerator::new()),
         };
 
         b.piece_list = b.build_piece_list();
@@ -127,8 +127,8 @@ impl Board {
 
     /// Returns a FEN string representing the current board position
     pub fn to_fen(&self) -> String {
-        use Piece::*;
         use Color::*;
+        use Piece::*;
 
         let mut fen = String::new();
 
@@ -147,7 +147,7 @@ impl Board {
             // add proper casing
             match self.colors[White].bit_at(square) {
                 true => fen.push(symbol),
-                false => fen.push(symbol.to_ascii_lowercase())
+                false => fen.push(symbol.to_ascii_lowercase()),
             }
 
             // if we are moving to the next rank, then add a slash
@@ -482,6 +482,20 @@ impl Board {
         }
 
         list
+    }
+}
+
+impl Clone for Board {
+    /// Creates a shallow copy of the board, meaning move history is not stored and only moves from this point on can be undone
+    fn clone(&self) -> Self {
+        Self {
+            pieces: self.pieces,
+            colors: self.colors,
+            game_state: self.game_state,
+            piece_list: self.piece_list,
+            history: Vec::new(),
+            move_generator: Rc::clone(&self.move_generator),
+        }
     }
 }
 
