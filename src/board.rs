@@ -125,6 +125,78 @@ impl Board {
         b
     }
 
+    /// Returns a FEN string representing the current board position
+    pub fn to_fen(&self) -> String {
+        use Piece::*;
+        use Color::*;
+
+        let mut fen = String::new();
+
+        for (square, piece) in self.piece_list.iter().enumerate() {
+            // get the symbol of this square
+            let symbol = match piece {
+                None => '1',
+                Some(Pawn) => 'P',
+                Some(Knight) => 'N',
+                Some(Bishop) => 'B',
+                Some(Rook) => 'R',
+                Some(Queen) => 'Q',
+                Some(King) => 'K',
+            };
+
+            // add proper casing
+            match self.colors[White].bit_at(square) {
+                true => fen.push(symbol),
+                false => fen.push(symbol.to_ascii_lowercase())
+            }
+
+            // if we are moving to the next rank, then add a slash
+            if (square + 1) % 8 == 0 {
+                fen.push('/');
+            }
+        }
+
+        // replace repeating ones
+        fen = fen.replace("11111111", "8");
+        fen = fen.replace("1111111", "7");
+        fen = fen.replace("111111", "6");
+        fen = fen.replace("11111", "5");
+        fen = fen.replace("1111", "4");
+        fen = fen.replace("111", "3");
+        fen = fen.replace("11", "2");
+
+        // after this point, we have an extra slash at the end, so remove it for a space
+        fen.remove(fen.chars().count() - 1);
+        fen.push(' ');
+
+        // active color
+        fen.push(match self.active_color() {
+            White => 'w',
+            Black => 'b',
+        });
+        fen.push(' ');
+
+        // castling data
+        fen.push_str(&self.game_state.castle_rights.to_fen_segment());
+        fen.push(' ');
+
+        // en passant target square
+        fen.push_str(match self.game_state.en_passant_square {
+            Some(square) => ALGEBRAIC_NOTATION[square],
+            None => "-",
+        });
+        fen.push(' ');
+
+        // halfmove
+        fen.push_str(&self.game_state.halfmove.to_string());
+        fen.push(' ');
+
+        // fullmove
+        fen.push_str(&self.game_state.fullmove.to_string());
+
+        fen
+    }
+
     /// Makes the given move and updates game state accordingly
     ///
     /// Assumes `m` is a valid and legal move
