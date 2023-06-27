@@ -1,6 +1,11 @@
 use crate::board::{Board, Move};
 
-use super::{evaluate::evaluate, ordering::order_moves, Score, CHECKMATE, DRAW};
+use super::{
+    evaluate::evaluate,
+    ordering::order_moves,
+    tt::{TranspositionData, TranspositionTable},
+    Score, CHECKMATE, DRAW,
+};
 
 // TODO - it seems difficult for the engine to finish out a game, even after it knows there is a checkmate
 
@@ -10,10 +15,19 @@ use super::{evaluate::evaluate, ordering::order_moves, Score, CHECKMATE, DRAW};
 ///
 /// Ensure that the game is not over before calling alpha beta search, as it expects valid moves to be able to be made
 pub fn alpha_beta(board: &mut Board, depth: u8) -> (Move, Score) {
+    // build a transposition table to store the scores of particular board states
+    let mut transposition_table = TranspositionTable::new();
+
     // generate a tuple of moves along with their scores
     let scored_moves = board.generate_moves().into_iter().map(|mov| {
         board.make_move(mov);
-        let score = -recurse(board, CHECKMATE, -CHECKMATE, depth - 1);
+        let score = -recurse(
+            board,
+            &mut transposition_table,
+            CHECKMATE,
+            -CHECKMATE,
+            depth - 1,
+        );
         board.unmake_move();
         (mov, score)
     });
@@ -27,6 +41,7 @@ pub fn alpha_beta(board: &mut Board, depth: u8) -> (Move, Score) {
 /// Recursive step of alpha beta algorithm
 fn recurse(
     board: &mut Board,
+    table: &mut TranspositionTable,
     alpha: Score, // represents the worst possible case for the moving side
     beta: Score,  // represents the best possible case for the non-moving side
     depth: u8,
@@ -34,6 +49,15 @@ fn recurse(
     // base case - if depth is 0, evaluate the board state
     if depth == 0 {
         return quiesce(board, alpha, beta);
+        // return evaluate(board);
+    }
+
+    // let mut found = false;
+    // let mut found_score = 0;
+
+    // check if this position has already been evaluated and is stored in the transposition table
+    if let Some(data) = table.get(board.zobrist(), depth) {
+        return data.score;
     }
 
     // else, generate moves and score them recursively
@@ -57,18 +81,30 @@ fn recurse(
     for mov in moves {
         // make the move and get the enemy's best response to that move, in terms of our evaluation
         board.make_move(mov);
-        let score = -recurse(board, -beta, -current_alpha, depth - 1);
+        let score = -recurse(board, table, -beta, -current_alpha, depth - 1);
         board.unmake_move();
 
         // if the evaluation for this move is better than the opponent's current best option,
         // they won't allow this to happen, so this move wouldn't even be considered
         if score >= beta {
+            // add this board configuration into the transposition table
+            table.insert(board.zobrist(), TranspositionData { score: beta, depth });
+
             return beta;
         }
 
         // update our current best move
         current_alpha = Score::max(score, current_alpha);
     }
+
+    // add this board configuration into the transposition table
+    table.insert(
+        board.zobrist(),
+        TranspositionData {
+            score: current_alpha,
+            depth,
+        },
+    );
 
     // return the highest score, the one that we will choose to make
     current_alpha

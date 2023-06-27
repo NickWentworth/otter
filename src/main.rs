@@ -8,6 +8,9 @@ fn main() {
 
     let mut b = board::Board::new(fen);
 
+    let i = std::time::Instant::now();
     let (mov, score) = search::alpha_beta(&mut b, 5);
+    println!("{:?}", i.elapsed());
+
     println!("{}: {}", mov, score);
 }

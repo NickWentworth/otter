@@ -10,11 +10,12 @@ mod move_generator;
 mod zobrist;
 
 pub use move_generator::{Move, MoveFlag};
+pub use zobrist::ZobristHash;
 
 use castling::{CastleRights, CastleSide};
 use fen::{check_valid_fen, DEFAULT_FEN};
 use move_generator::MoveGenerator;
-use zobrist::{ZobristValues, ZobristHash};
+use zobrist::ZobristValues;
 
 /// Variables related to conditions of the game
 #[derive(Clone, Copy)]
@@ -130,7 +131,7 @@ impl Board {
         };
 
         b.piece_list = b.build_piece_list();
-        b.zobrist_hash = b.build_zobrist();
+        b.zobrist_hash = b.zobrist();
 
         b
     }
@@ -496,7 +497,7 @@ impl Board {
 
     /// Generates a zobrist hash value representing the current board state
     // TODO - incrementally update this hash instead of generating it fresh every time
-    pub fn build_zobrist(&self) -> ZobristHash {
+    pub fn zobrist(&mut self) -> ZobristHash {
         use Color::*;
         use CastleSide::*;
 

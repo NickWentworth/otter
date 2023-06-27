@@ -2,6 +2,7 @@ mod alpha_beta;
 mod evaluate;
 mod ordering;
 mod tables;
+mod tt;
 
 pub use alpha_beta::alpha_beta;
 
