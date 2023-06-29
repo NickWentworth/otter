@@ -1,6 +1,6 @@
 use crate::{
-    core::Piece,
     board::{Move, MoveFlag},
+    core::Piece,
 };
 
 // TODO - as of now, sort_by_cached_key is slower than sort_by_key, if this importance calculation grows, it may change
@@ -27,15 +27,10 @@ pub fn order_moves(moves: &mut Vec<Move>) {
             importance += (5 * attacked_value) - moving_value;
         }
 
-        // prefer castling
-        importance += match mov.flag {
-            KingCastle | QueenCastle => 200,
-            _ => 0,
-        };
-
         // prefer promotions
         importance += match mov.flag {
             Promotion(promoted_piece) => promoted_piece.material_value(),
+            CapturePromotion(_, promoted_piece) => promoted_piece.material_value(),
             _ => 0,
         };
 

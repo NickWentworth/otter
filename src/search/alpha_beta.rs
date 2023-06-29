@@ -5,7 +5,7 @@ use super::{
 };
 
 #[derive(Clone, Copy, Default)]
-struct ScoreData {
+pub struct ScoreData {
     score: Score,
     depth: u8,
 }
@@ -17,32 +17,23 @@ struct ScoreData {
 /// Removes invalid move subtrees if worse than an already-evaluated move
 ///
 /// Ensure that the game is not over before calling alpha beta search, as it expects valid moves to be able to be made
-pub fn alpha_beta(board: &mut Board, depth: u8) -> (Move, Score) {
-    // build a transposition table to store the scores of particular board states
-    let mut transposition_table = TranspositionTable::<ScoreData>::new(4);
-
+pub fn alpha_beta(
+    board: &mut Board,
+    table: &mut TranspositionTable<ScoreData>,
+    depth: u8,
+) -> (Move, Score) {
     // generate a tuple of moves along with their scores
     let scored_moves = board.generate_moves().into_iter().map(|mov| {
         board.make_move(mov);
-        let score = -recurse(
-            board,
-            &mut transposition_table,
-            CHECKMATE,
-            -CHECKMATE,
-            depth - 1,
-        );
+        let score = -recurse(board, table, CHECKMATE, -CHECKMATE, depth - 1);
         board.unmake_move();
         (mov, score)
     });
 
     // find the best move
-    let best = scored_moves
+    scored_moves
         .reduce(|best, next| if next.1 > best.1 { next } else { best })
-        .unwrap();
-
-    transposition_table.print_stats();
-
-    best
+        .unwrap()
 }
 
 /// Recursive step of alpha beta algorithm

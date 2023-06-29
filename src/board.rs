@@ -42,7 +42,7 @@ pub struct Board {
     // move generator structure to store move lookup tables
     move_generator: Rc<MoveGenerator>,
 
-    // strategy to hash board state for transposition tables 
+    // strategy to hash board state for transposition tables
     zobrist_values: Rc<ZobristValues>,
     zobrist_hash: ZobristHash,
 }
@@ -498,8 +498,8 @@ impl Board {
     /// Generates a zobrist hash value representing the current board state
     // TODO - incrementally update this hash instead of generating it fresh every time
     pub fn zobrist(&mut self) -> ZobristHash {
-        use Color::*;
         use CastleSide::*;
+        use Color::*;
 
         let mut hash = 0;
 
@@ -511,7 +511,7 @@ impl Board {
                         true => Color::White,
                         false => Color::Black,
                     };
-                    
+
                     hash ^= self.zobrist_values.piece(square, *piece, color);
                 }
                 None => (),
@@ -531,7 +531,9 @@ impl Board {
         hash ^= self.zobrist_values.active(self.game_state.current_turn);
 
         // en passant
-        hash ^= self.zobrist_values.en_passant(self.game_state.en_passant_square);
+        hash ^= self
+            .zobrist_values
+            .en_passant(self.game_state.en_passant_square);
 
         hash
     }

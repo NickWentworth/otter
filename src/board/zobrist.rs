@@ -8,7 +8,7 @@ use super::castling::{CastleSide, NUM_CASTLE_SIDES};
 pub type ZobristHash = u64;
 
 /// Contains arrays of generated random values, each corresponding to a possible modification of the board state
-/// 
+///
 /// These values can be XOR-ed with a current hash whenever a piece is moved, castling rights are changed, etc, to have
 /// a readily available hash value for the board state.
 pub struct ZobristValues {

@@ -7,7 +7,7 @@ const MB_SIZE: usize = 1024 * 1024;
 
 /// Describes an entry in the transposition table, contains a hash for verification and some data along with it
 #[derive(Clone, Copy, Default)]
-pub struct Entry<D> {
+struct Entry<D> {
     hash: ZobristHash,
     data: D,
 }
@@ -25,7 +25,10 @@ pub struct TranspositionTable<D> {
 }
 
 /// Data type must be have a default value and be copy-able for pre-allocation and accessing later on
-impl<D: Copy + Default> TranspositionTable<D> {
+impl<D> TranspositionTable<D>
+where
+    D: Copy + Default,
+{
     /// Generates an empty transposition table with alloted size in MB
     pub fn new(mb: usize) -> TranspositionTable<D> {
         // calculate how many entries can be stored in the table
