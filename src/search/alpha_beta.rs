@@ -1,11 +1,14 @@
 use crate::board::{Board, Move};
 
 use super::{
-    evaluate::evaluate,
-    ordering::order_moves,
-    tt::{TranspositionData, TranspositionTable},
-    Score, CHECKMATE, DRAW,
+    evaluate::evaluate, ordering::order_moves, tt::TranspositionTable, Score, CHECKMATE, DRAW,
 };
+
+#[derive(Clone, Copy, Default)]
+struct ScoreData {
+    score: Score,
+    depth: u8,
+}
 
 // TODO - it seems difficult for the engine to finish out a game, even after it knows there is a checkmate
 
@@ -16,7 +19,7 @@ use super::{
 /// Ensure that the game is not over before calling alpha beta search, as it expects valid moves to be able to be made
 pub fn alpha_beta(board: &mut Board, depth: u8) -> (Move, Score) {
     // build a transposition table to store the scores of particular board states
-    let mut transposition_table = TranspositionTable::new();
+    let mut transposition_table = TranspositionTable::<ScoreData>::new(4);
 
     // generate a tuple of moves along with their scores
     let scored_moves = board.generate_moves().into_iter().map(|mov| {
@@ -32,16 +35,20 @@ pub fn alpha_beta(board: &mut Board, depth: u8) -> (Move, Score) {
         (mov, score)
     });
 
-    // find the best move and return it
-    scored_moves
+    // find the best move
+    let best = scored_moves
         .reduce(|best, next| if next.1 > best.1 { next } else { best })
-        .unwrap()
+        .unwrap();
+
+    transposition_table.print_stats();
+
+    best
 }
 
 /// Recursive step of alpha beta algorithm
 fn recurse(
     board: &mut Board,
-    table: &mut TranspositionTable,
+    table: &mut TranspositionTable<ScoreData>,
     alpha: Score, // represents the worst possible case for the moving side
     beta: Score,  // represents the best possible case for the non-moving side
     depth: u8,
@@ -49,15 +56,13 @@ fn recurse(
     // base case - if depth is 0, evaluate the board state
     if depth == 0 {
         return quiesce(board, alpha, beta);
-        // return evaluate(board);
     }
 
-    // let mut found = false;
-    // let mut found_score = 0;
-
     // check if this position has already been evaluated and is stored in the transposition table
-    if let Some(data) = table.get(board.zobrist(), depth) {
-        return data.score;
+    if let Some(data) = table.get(board.zobrist()) {
+        if data.depth >= depth {
+            return data.score;
+        }
     }
 
     // else, generate moves and score them recursively
@@ -88,7 +93,7 @@ fn recurse(
         // they won't allow this to happen, so this move wouldn't even be considered
         if score >= beta {
             // add this board configuration into the transposition table
-            table.insert(board.zobrist(), TranspositionData { score: beta, depth });
+            table.insert(board.zobrist(), ScoreData { score: beta, depth });
 
             return beta;
         }
@@ -100,7 +105,7 @@ fn recurse(
     // add this board configuration into the transposition table
     table.insert(
         board.zobrist(),
-        TranspositionData {
+        ScoreData {
             score: current_alpha,
             depth,
         },

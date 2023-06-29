@@ -1,43 +1,105 @@
 use crate::board::ZobristHash;
-use std::collections::HashMap;
+use std::mem::size_of;
 
-use super::Score;
+// TODO - add buckets to allow multiple entries stored at a single index
 
-pub struct TranspositionData {
-    pub score: Score,
-    pub depth: u8,
+const MB_SIZE: usize = 1024 * 1024;
+
+/// Describes an entry in the transposition table, contains a hash for verification and some data along with it
+#[derive(Clone, Copy, Default)]
+pub struct Entry<D> {
+    hash: ZobristHash,
+    data: D,
 }
 
 /// Stores the evaluation of different board states, greatly reducing the search tree size
-pub struct TranspositionTable {
-    // TODO - hash map doesn't seem to be the right option here, can't figure out how to not re-hash the zobrist hash
-    table: HashMap<ZobristHash, TranspositionData>,
+pub struct TranspositionTable<D> {
+    table: Vec<Entry<D>>, // uses zobrist hashes to store scores
+    capacity: usize,      // amount of scores to be stored in the table
+    used: usize,          // amount of scores currently stored in the table
+
+    // statistics
+    total: usize,      // total access attempts
+    hits: usize,       // total hits from accesses
+    collisions: usize, // collisions on insert
 }
 
-impl TranspositionTable {
-    /// Generates an empty transposition table
-    pub fn new() -> TranspositionTable {
+/// Data type must be have a default value and be copy-able for pre-allocation and accessing later on
+impl<D: Copy + Default> TranspositionTable<D> {
+    /// Generates an empty transposition table with alloted size in MB
+    pub fn new(mb: usize) -> TranspositionTable<D> {
+        // calculate how many entries can be stored in the table
+        let capacity = (mb * MB_SIZE) / size_of::<Entry<D>>();
+
         TranspositionTable {
-            table: HashMap::new(),
+            table: vec![
+                Entry {
+                    hash: 0,
+                    data: D::default()
+                };
+                capacity
+            ],
+            capacity,
+            used: 0,
+            total: 0,
+            hits: 0,
+            collisions: 0,
         }
     }
 
     /// Inserts data into the transposition table
-    pub fn insert(&mut self, hash: ZobristHash, data: TranspositionData) {
-        self.table.insert(hash, data);
+    pub fn insert(&mut self, hash: ZobristHash, data: D) {
+        let index = self.hash_index(hash);
+
+        let residing_hash = self.table[index].hash;
+
+        if residing_hash == 0 {
+            self.used += 1;
+        } else if residing_hash != hash {
+            self.collisions += 1;
+        }
+
+        self.table[index] = Entry { hash, data };
     }
 
     /// Tries to fetch from the transposition table, given a current searching depth
     ///
     /// The depth is needed to prevent cases where a shallow evaluation is used instead of a deeper and more accurate evaluation
-    pub fn get(&self, hash: ZobristHash, current_depth: u8) -> Option<&TranspositionData> {
-        let data = self.table.get(&hash);
+    pub fn get(&mut self, hash: ZobristHash) -> Option<D> {
+        let entry = self.table[self.hash_index(hash)];
 
-        // only return data if it is as deep (or deeper) of an evaluation that is being asked
-        if data?.depth >= current_depth {
-            data
+        self.total += 1;
+
+        if entry.hash == hash {
+            self.hits += 1;
+            Some(entry.data)
         } else {
             None
         }
+    }
+
+    /// Prints debug statistics for the table
+    pub fn print_stats(&self) {
+        println!("capacity: {}", self.capacity);
+        println!(
+            "entries (used %): {} ({:.2}%)",
+            self.used,
+            self.used as f32 / self.capacity as f32 * 100f32
+        );
+
+        println!("total accesses: {}", self.total);
+        println!(
+            "hits (rate %): {} ({:.2}%)",
+            self.hits,
+            self.hits as f32 / self.total as f32 * 100f32
+        );
+
+        println!("collisions: {}", self.collisions);
+        println!();
+    }
+
+    /// Returns the index in the table of the given hash
+    fn hash_index(&self, hash: ZobristHash) -> usize {
+        (hash as usize) % self.capacity
     }
 }
