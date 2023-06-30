@@ -4,8 +4,9 @@ mod ordering;
 mod tables;
 mod tt;
 
-pub use alpha_beta::{alpha_beta, ScoreData};
-pub use tt::TranspositionTable;
+pub use alpha_beta::alpha_beta;
+
+pub type TranspositionTable = tt::TranspositionTable<alpha_beta::ScoreData>;
 
 /// Represents the score of the board, where a positive number implies moving side is ahead
 pub type Score = i32;
