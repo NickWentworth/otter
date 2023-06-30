@@ -34,6 +34,20 @@ impl Piece {
             King => 0, // both sides always have a king, so its value isn't needed
         }
     }
+
+    /// Converts a piece to its commonly used symbol
+    pub fn symbol(self) -> char {
+        use Piece::*;
+
+        match self {
+            Pawn => 'p',
+            Knight => 'n',
+            Bishop => 'b',
+            Rook => 'r',
+            Queen => 'q',
+            King => 'k',
+        }
+    }
 }
 
 pub const NUM_PIECES: usize = 6;

@@ -37,8 +37,13 @@ impl Display for Move {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{}{}",
-            ALGEBRAIC_NOTATION[self.from], ALGEBRAIC_NOTATION[self.to]
+            "{}{}{}",
+            ALGEBRAIC_NOTATION[self.from],
+            ALGEBRAIC_NOTATION[self.to],
+            match self.flag {
+                MoveFlag::Promotion(p) | MoveFlag::CapturePromotion(_, p) => p.symbol().to_string(),
+                _ => "".to_string(),
+            }
         )
     }
 }
