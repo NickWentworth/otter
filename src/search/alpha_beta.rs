@@ -4,13 +4,23 @@ use super::{
     evaluate::evaluate, ordering::order_moves, tt::TranspositionTable, Score, CHECKMATE, DRAW,
 };
 
+/// Value where a score can still be considered a checkmate
+const CHECKMATE_THRESHOLD: Score = -CHECKMATE / 2;
+
+#[derive(Clone, Copy, Default)]
+enum ScoreLimit {
+    #[default]
+    Exact, // an exact score value has been found for this position
+    Alpha, // an upper bound has been found for this position
+    Beta,  // a lower bound has been found for this position
+}
+
 #[derive(Clone, Copy, Default)]
 pub struct ScoreData {
     score: Score,
     depth: u8,
+    flag: ScoreLimit, // denotes the bounds of the stored score
 }
-
-// TODO - it seems difficult for the engine to finish out a game, even after it knows there is a checkmate
 
 /// Returns an estimation of the best move by recursively checking opponent's best response is to this move
 ///
@@ -45,6 +55,10 @@ fn recurse(
     depth: u8,
     ply: u8,
 ) -> Score {
+    use ScoreLimit::*;
+
+    // TODO - handle 3-fold repetition draws
+
     // base case - if depth is 0, evaluate the board state
     if depth == 0 {
         return quiesce(board, alpha, beta);
@@ -52,10 +66,27 @@ fn recurse(
 
     // check if this position has already been evaluated and is stored in the transposition table
     if let Some(data) = table.get(board.zobrist()) {
-        // FIXME - transposition table is not properly giving moves when a forced checkmate sequence is found
-        // if data.depth >= depth {
-        //     return data.score;
-        // }
+        // only consider positions searched to at least the current depth
+        if data.depth >= depth {
+            match data.flag {
+                // if exact, we can just return the score
+                Exact => return convert_mate(data.score, ply),
+
+                // if alpha, ensure that the upper bound given is within our limits for upper bound
+                Alpha => {
+                    if data.score <= alpha {
+                        return convert_mate(data.score, ply);
+                    }
+                }
+
+                // if beta, ensure that the lower bound given is within our limits for lower bound
+                Beta => {
+                    if data.score >= beta {
+                        return convert_mate(data.score, ply);
+                    }
+                }
+            }
+        }
     }
 
     // else, generate moves and score them recursively
@@ -87,7 +118,14 @@ fn recurse(
         // they won't allow this to happen, so this move wouldn't even be considered
         if score >= beta {
             // add this board configuration into the transposition table
-            table.insert(board.zobrist(), ScoreData { score: beta, depth });
+            table.insert(
+                board.zobrist(),
+                ScoreData {
+                    score,
+                    depth,
+                    flag: Beta,
+                },
+            );
 
             return beta;
         }
@@ -102,6 +140,10 @@ fn recurse(
         ScoreData {
             score: current_alpha,
             depth,
+            flag: match alpha == current_alpha {
+                true => Exact,  // an improvement has been made to our upper bound
+                false => Alpha, // all that we know is that this position has an upper bound
+            },
         },
     );
 
@@ -145,4 +187,15 @@ fn quiesce(
     }
 
     current_alpha
+}
+
+/// Converts a tt-fetched checkmate to a ply-offset checkmate for correct ordering of mating scores based on ply
+fn convert_mate(score: Score, ply: u8) -> Score {
+    if score > CHECKMATE_THRESHOLD {
+        score - (ply as Score)
+    } else if score < -CHECKMATE_THRESHOLD {
+        score + (ply as Score)
+    } else {
+        score
+    }
 }
