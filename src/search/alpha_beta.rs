@@ -25,7 +25,7 @@ pub fn alpha_beta(
     // generate a tuple of moves along with their scores
     let scored_moves = board.generate_moves().into_iter().map(|mov| {
         board.make_move(mov);
-        let score = -recurse(board, table, CHECKMATE, -CHECKMATE, depth - 1);
+        let score = -recurse(board, table, CHECKMATE, -CHECKMATE, depth - 1, 1);
         board.unmake_move();
         (mov, score)
     });
@@ -43,6 +43,7 @@ fn recurse(
     alpha: Score, // represents the worst possible case for the moving side
     beta: Score,  // represents the best possible case for the non-moving side
     depth: u8,
+    ply: u8,
 ) -> Score {
     // base case - if depth is 0, evaluate the board state
     if depth == 0 {
@@ -51,9 +52,10 @@ fn recurse(
 
     // check if this position has already been evaluated and is stored in the transposition table
     if let Some(data) = table.get(board.zobrist()) {
-        if data.depth >= depth {
-            return data.score;
-        }
+        // FIXME - transposition table is not properly giving moves when a forced checkmate sequence is found
+        // if data.depth >= depth {
+        //     return data.score;
+        // }
     }
 
     // else, generate moves and score them recursively
@@ -62,7 +64,8 @@ fn recurse(
     // if there are no moves generated, the game is over at this point
     if moves.is_empty() {
         if board.in_check() {
-            return CHECKMATE;
+            // add ply to checkmate score to sort faster (lower ply) checkmates higher
+            return CHECKMATE + (ply as Score);
         } else {
             return DRAW;
         }
@@ -77,7 +80,7 @@ fn recurse(
     for mov in moves {
         // make the move and get the enemy's best response to that move, in terms of our evaluation
         board.make_move(mov);
-        let score = -recurse(board, table, -beta, -current_alpha, depth - 1);
+        let score = -recurse(board, table, -beta, -current_alpha, depth - 1, ply + 1);
         board.unmake_move();
 
         // if the evaluation for this move is better than the opponent's current best option,
