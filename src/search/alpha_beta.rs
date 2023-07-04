@@ -1,11 +1,12 @@
 use crate::board::{Board, Move};
 
-use super::{
-    evaluate::evaluate, ordering::order_moves, tt::TranspositionTable, Score, CHECKMATE, DRAW,
-};
+use super::{evaluate::evaluate, ordering::order_moves, tt::TranspositionTable, Score};
 
-/// Value where a score can still be considered a checkmate
-const CHECKMATE_THRESHOLD: Score = -CHECKMATE / 2;
+// Scores pertaining to different constant cases
+const INFINITY: Score = 30000;
+const CHECKMATE: Score = 25000;
+const CHECKMATE_THRESHOLD: Score = 20000; // values above this can be considered "mate in _"
+const DRAW: Score = 0;
 
 #[derive(Clone, Copy, Default)]
 enum ScoreLimit {
@@ -35,7 +36,7 @@ pub fn alpha_beta(
     // generate a tuple of moves along with their scores
     let scored_moves = board.generate_moves().into_iter().map(|mov| {
         board.make_move(mov);
-        let score = -recurse(board, table, CHECKMATE, -CHECKMATE, depth - 1, 1);
+        let score = -recurse(board, table, -INFINITY, INFINITY, depth - 1, 1);
         board.unmake_move();
         (mov, score)
     });
@@ -50,8 +51,8 @@ pub fn alpha_beta(
 fn recurse(
     board: &mut Board,
     table: &mut TranspositionTable<ScoreData>,
-    alpha: Score, // represents the worst possible case for the moving side
-    beta: Score,  // represents the best possible case for the non-moving side
+    alpha: Score, // upper bound for the moving side (known best case)
+    beta: Score,  // lower bound for the moving side (known worst case)
     depth: u8,
     ply: u8,
 ) -> Score {
@@ -68,21 +69,24 @@ fn recurse(
     if let Some(data) = table.get(board.zobrist()) {
         // only consider positions searched to at least the current depth
         if data.depth >= depth {
+            // convert the score to the proper format for checkmates
+            let converted_score = convert_mate_get(data.score, ply);
+
             match data.flag {
                 // if exact, we can just return the score
-                Exact => return convert_mate(data.score, ply),
+                Exact => return converted_score,
 
                 // if alpha, ensure that the upper bound given is within our limits for upper bound
                 Alpha => {
-                    if data.score <= alpha {
-                        return convert_mate(data.score, ply);
+                    if converted_score <= alpha {
+                        return converted_score;
                     }
                 }
 
                 // if beta, ensure that the lower bound given is within our limits for lower bound
                 Beta => {
-                    if data.score >= beta {
-                        return convert_mate(data.score, ply);
+                    if converted_score >= beta {
+                        return converted_score;
                     }
                 }
             }
@@ -95,8 +99,8 @@ fn recurse(
     // if there are no moves generated, the game is over at this point
     if moves.is_empty() {
         if board.in_check() {
-            // add ply to checkmate score to sort faster (lower ply) checkmates higher
-            return CHECKMATE + (ply as Score);
+            // add ply to checkmate score to denote "mate in (ply)" from the initial position
+            return -CHECKMATE + (ply as Score);
         } else {
             return DRAW;
         }
@@ -106,6 +110,7 @@ fn recurse(
     order_moves(&mut moves);
 
     let mut current_alpha = alpha;
+    let mut flag = Alpha;
 
     // go through the moves and find the best score
     for mov in moves {
@@ -121,7 +126,7 @@ fn recurse(
             table.insert(
                 board.zobrist(),
                 ScoreData {
-                    score,
+                    score: convert_mate_insert(beta, ply),
                     depth,
                     flag: Beta,
                 },
@@ -131,19 +136,20 @@ fn recurse(
         }
 
         // update our current best move
-        current_alpha = Score::max(score, current_alpha);
+        if score > current_alpha {
+            flag = Exact; // we now have an exact move score
+            current_alpha = score; // and should update the currently known best move
+        }
+        // current_alpha = Score::max(score, current_alpha);
     }
 
     // add this board configuration into the transposition table
     table.insert(
         board.zobrist(),
         ScoreData {
-            score: current_alpha,
+            score: convert_mate_insert(current_alpha, ply),
             depth,
-            flag: match alpha == current_alpha {
-                true => Exact,  // an improvement has been made to our upper bound
-                false => Alpha, // all that we know is that this position has an upper bound
-            },
+            flag,
         },
     );
 
@@ -189,13 +195,33 @@ fn quiesce(
     current_alpha
 }
 
-/// Converts a tt-fetched checkmate to a ply-offset checkmate for correct ordering of mating scores based on ply
-fn convert_mate(score: Score, ply: u8) -> Score {
+// checkmates are stored in the transposition table as "mate in _ from this position" scores
+// to allow for the same transposition to be used, we must convert into the correct form when reading/writing
+
+fn convert_mate_get(score: Score, ply: u8) -> Score {
     if score > CHECKMATE_THRESHOLD {
         score - (ply as Score)
     } else if score < -CHECKMATE_THRESHOLD {
         score + (ply as Score)
     } else {
         score
+    }
+}
+
+fn convert_mate_insert(score: Score, ply: u8) -> Score {
+    if score > CHECKMATE_THRESHOLD {
+        score + (ply as Score)
+    } else if score < -CHECKMATE_THRESHOLD {
+        score - (ply as Score)
+    } else {
+        score
+    }
+}
+
+/// Returns how many turns a mate will occur in, if applicable
+pub fn mate_in(score: Score) -> Option<Score> {
+    match score.abs() > CHECKMATE_THRESHOLD {
+        true => Some(CHECKMATE - score.abs()),
+        false => None,
     }
 }

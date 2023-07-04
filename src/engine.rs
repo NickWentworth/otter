@@ -1,10 +1,10 @@
 use crate::{
     board::Board,
-    search::{alpha_beta, TranspositionTable},
+    search::{alpha_beta, mate_in, TranspositionTable},
 };
 
 const TT_SIZE: usize = 64;
-const SEARCH_DEPTH: u8 = 5;
+const SEARCH_DEPTH: u8 = 8;
 const MAX_MOVES: usize = 200;
 
 pub struct Engine {
@@ -45,14 +45,17 @@ impl Engine {
             // make the move
             self.board.make_move(best_move);
             move_count += 1;
-            println!("{}: {}", best_move, evaluation);
+            match mate_in(evaluation) {
+                Some(mate) => println!("{} (M{})", best_move, mate),
+                None => println!("{} ({})", best_move, evaluation),
+            }
         }
 
         if move_count == MAX_MOVES {
             println!("move limit reached!");
         }
 
-        self.table.print_stats();
-        println!("{}", self.board);
+        // self.table.print_stats();
+        // println!("{}", self.board);
     }
 }
