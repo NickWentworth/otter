@@ -1,6 +1,6 @@
 use crate::{
     board::Board,
-    search::{alpha_beta, mate_in, TranspositionTable},
+    search::{best_move, mate_in, TranspositionTable},
 };
 
 const TT_SIZE: usize = 64;
@@ -23,36 +23,32 @@ impl Engine {
 
     /// Plays currently loaded board state to completion
     pub fn play(&mut self) {
-        let mut move_count = 0;
-        while move_count < MAX_MOVES {
-            // check if game is over
-            if self.board.generate_moves().is_empty() {
-                print!("game over: ");
+        for _ in 0..MAX_MOVES {
+            // generate best move
+            match best_move(&mut self.board, &mut self.table, SEARCH_DEPTH) {
+                Some((best_move, evaluation)) => {
+                    // make the move
+                    self.board.make_move(best_move);
 
-                if self.board.in_check() {
-                    println!("{:?} wins", self.board.active_color().opposite())
-                } else {
-                    println!("draw");
+                    match mate_in(evaluation) {
+                        Some(mate) => println!("{} (M{})", best_move, mate),
+                        None => println!("{} ({})", best_move, evaluation),
+                    }
                 }
 
-                break;
+                None => {
+                    // if no moves can be generated, game is over
+                    print!("game over: ");
+
+                    if self.board.in_check() {
+                        println!("{:?} wins", self.board.active_color().opposite())
+                    } else {
+                        println!("draw");
+                    }
+
+                    break;
+                }
             }
-
-            // generate best move
-            let (best_move, evaluation) =
-                alpha_beta(&mut self.board, &mut self.table, SEARCH_DEPTH);
-
-            // make the move
-            self.board.make_move(best_move);
-            move_count += 1;
-            match mate_in(evaluation) {
-                Some(mate) => println!("{} (M{})", best_move, mate),
-                None => println!("{} ({})", best_move, evaluation),
-            }
-        }
-
-        if move_count == MAX_MOVES {
-            println!("move limit reached!");
         }
 
         // self.table.print_stats();
