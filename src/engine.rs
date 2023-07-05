@@ -1,6 +1,6 @@
 use crate::{
     board::Board,
-    search::{best_move, mate_in, TranspositionTable},
+    search::{best_move, mate_in, SearchTT},
 };
 
 const TT_SIZE: usize = 64;
@@ -9,7 +9,7 @@ const MAX_MOVES: usize = 200;
 
 pub struct Engine {
     board: Board,
-    table: TranspositionTable,
+    table: SearchTT,
 }
 
 impl Engine {
@@ -17,7 +17,7 @@ impl Engine {
     pub fn new(fen: String) -> Engine {
         Engine {
             board: Board::new(fen),
-            table: TranspositionTable::new(TT_SIZE),
+            table: SearchTT::new(TT_SIZE),
         }
     }
 

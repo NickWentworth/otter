@@ -8,6 +8,9 @@ const CHECKMATE: Score = 25000;
 const CHECKMATE_THRESHOLD: Score = 20000; // values above this can be considered "mate in _"
 const DRAW: Score = 0;
 
+/// Transposition table used for searching, stores required data about scoring a position
+pub type SearchTT = TranspositionTable<ScoreData>;
+
 #[derive(Clone, Copy, Default)]
 enum ScoreLimit {
     #[default]
@@ -26,7 +29,7 @@ pub struct ScoreData {
 /// Returns an estimation of the best move by recursively checking opponent's best response is to this move
 pub fn best_move(
     board: &mut Board,
-    table: &mut TranspositionTable<ScoreData>,
+    table: &mut SearchTT,
     depth: u8,
 ) -> Option<(Move, Score)> {
     // generate a tuple of moves along with their scores and find the max
@@ -45,7 +48,7 @@ pub fn best_move(
 /// Recursive step of alpha beta algorithm
 fn alpha_beta(
     board: &mut Board,
-    table: &mut TranspositionTable<ScoreData>,
+    table: &mut SearchTT,
     mut alpha: Score, // upper bound for the moving side (known best case)
     beta: Score,      // lower bound for the moving side (known worst case)
     depth: u8,
