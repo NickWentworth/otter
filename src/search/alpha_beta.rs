@@ -1,4 +1,5 @@
 use crate::board::{Board, Move};
+use std::time::{Duration, Instant};
 
 use super::{evaluate::evaluate, ordering::order_moves, tt::TranspositionTable, Score};
 
@@ -7,6 +8,9 @@ const INFINITY: Score = 30000;
 const CHECKMATE: Score = 25000;
 const CHECKMATE_THRESHOLD: Score = 20000; // values above this can be considered "mate in _"
 const DRAW: Score = 0;
+
+/// Maximum depth allowed to be searched to
+const MAX_DEPTH: u8 = u8::MAX;
 
 /// Transposition table used for searching, stores required data about scoring a position
 pub type SearchTT = TranspositionTable<ScoreData>;
@@ -30,19 +34,35 @@ pub struct ScoreData {
 pub fn best_move(
     board: &mut Board,
     table: &mut SearchTT,
-    depth: u8,
+    search_time: Duration,
 ) -> Option<(Move, Score)> {
-    // generate a tuple of moves along with their scores and find the max
-    board
-        .generate_moves()
-        .into_iter()
-        .map(|mov| {
-            board.make_move(mov);
-            let score = -alpha_beta(board, table, -INFINITY, INFINITY, depth - 1, 1);
-            board.unmake_move();
-            (mov, score)
-        })
-        .max_by_key(|(_, score)| score.clone()) // max by the score value
+    let mut best = None;
+    let used_time = Instant::now();
+
+    // iterative deepening - keep incrementing depth until an alloted search time is used up
+    for depth in 1..MAX_DEPTH {
+        // TODO - implement a way to stop mid-search if allotted time is hit
+        // TODO - use the currently known best move to order moves in deeper searches
+
+        // break if allotted search time was reached
+        if used_time.elapsed() >= search_time {
+            break;
+        }
+
+        // generate a tuple of moves along with their scores and find the max
+        best = board
+            .generate_moves()
+            .into_iter()
+            .map(|mov| {
+                board.make_move(mov);
+                let score = -alpha_beta(board, table, -INFINITY, INFINITY, depth - 1, 1);
+                board.unmake_move();
+                (mov, score)
+            })
+            .max_by_key(|(_, score)| score.clone()); // max by the score value
+    }
+
+    best
 }
 
 /// Recursive step of alpha beta algorithm

@@ -2,10 +2,13 @@ use crate::{
     board::Board,
     search::{best_move, mate_in, SearchTT},
 };
+use std::time::Duration;
 
 const TT_SIZE: usize = 64;
-const SEARCH_DEPTH: u8 = 8;
 const MAX_MOVES: usize = 200;
+
+// TODO - store some current time for each side and use that to determine search time
+const SEARCH_TIME: Duration = std::time::Duration::from_secs(1);
 
 pub struct Engine {
     board: Board,
@@ -25,7 +28,7 @@ impl Engine {
     pub fn play(&mut self) {
         for _ in 0..MAX_MOVES {
             // generate best move
-            match best_move(&mut self.board, &mut self.table, SEARCH_DEPTH) {
+            match best_move(&mut self.board, &mut self.table, SEARCH_TIME) {
                 Some((best_move, evaluation)) => {
                     // make the move
                     self.board.make_move(best_move);
