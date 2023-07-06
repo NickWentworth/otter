@@ -1,7 +1,7 @@
 use crate::core::{Piece, Square, ALGEBRAIC_NOTATION};
 use std::fmt::Display;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum MoveFlag {
     Quiet,                          // nothing special, regular move that doesn't have any flags
     Capture(Piece),                 // opponent piece that was captured
@@ -14,7 +14,7 @@ pub enum MoveFlag {
 }
 
 /// Describes a move on the board and information related to that move
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Move {
     pub from: Square,
     pub to: Square,

@@ -23,11 +23,13 @@ enum ScoreLimit {
     Beta,  // a lower bound has been found for this position
 }
 
+// TODO - move struct being here changes size of this from 4 bytes to 48 bytes, need to pack moves into a smaller struct
 #[derive(Clone, Copy, Default)]
 pub struct ScoreData {
     score: Score,
     depth: u8,
-    flag: ScoreLimit, // denotes the bounds of the stored score
+    flag: ScoreLimit,        // denotes the bounds of the stored score
+    best_move: Option<Move>, // if found, the current best move from this position
 }
 
 /// Returns an estimation of the best move by recursively checking opponent's best response is to this move
@@ -36,16 +38,16 @@ pub fn best_move(
     table: &mut SearchTT,
     search_time: Duration,
 ) -> Option<(Move, Score)> {
-    let mut best = None;
+    let mut best: Option<(Move, Score)> = None;
     let used_time = Instant::now();
 
     // iterative deepening - keep incrementing depth until an alloted search time is used up
     for depth in 1..MAX_DEPTH {
         // TODO - implement a way to stop mid-search if allotted time is hit
-        // TODO - use the currently known best move to order moves in deeper searches
 
         // break if allotted search time was reached
         if used_time.elapsed() >= search_time {
+            print!("[time] depth {}: ", depth);
             break;
         }
 
@@ -60,6 +62,14 @@ pub fn best_move(
                 (mov, score)
             })
             .max_by_key(|(_, score)| score.clone()); // max by the score value
+
+        // leave early if we found a forced mate sequence
+        if let Some((_, score)) = best {
+            if score.abs() > CHECKMATE_THRESHOLD {
+                print!("[mate] depth {}: ", depth);
+                break;
+            }
+        }
     }
 
     best
@@ -84,32 +94,40 @@ fn alpha_beta(
     }
 
     // check if this position has already been evaluated and is stored in the transposition table
-    if let Some(data) = table.get(board.zobrist()) {
-        // only consider positions searched to at least the current depth
-        if data.depth >= depth {
-            // convert the score to the proper format for checkmates
-            let converted_score = convert_score_get(data.score, ply);
+    let best_move = match table.get(board.zobrist()) {
+        Some(data) => {
+            // only consider scores from positions searched to at least the current depth
+            if data.depth >= depth {
+                // convert the score to the proper format for checkmates
+                let converted_score = convert_score_get(data.score, ply);
 
-            match data.flag {
-                // if exact, we can just return the score
-                Exact => return converted_score,
+                match data.flag {
+                    // if exact, we can just return the score
+                    Exact => return converted_score,
 
-                // if alpha, ensure that the upper bound given is within our limits for upper bound
-                Alpha => {
-                    if converted_score <= alpha {
-                        return converted_score;
+                    // if alpha, ensure that the upper bound given is within our limits for upper bound
+                    Alpha => {
+                        if converted_score <= alpha {
+                            return converted_score;
+                        }
                     }
-                }
 
-                // if beta, ensure that the lower bound given is within our limits for lower bound
-                Beta => {
-                    if converted_score >= beta {
-                        return converted_score;
+                    // if beta, ensure that the lower bound given is within our limits for lower bound
+                    Beta => {
+                        if converted_score >= beta {
+                            return converted_score;
+                        }
                     }
                 }
             }
+
+            // if the table stored a position but couldn't be used, at least order the best move first
+            data.best_move
         }
-    }
+
+        // no data to go off from
+        None => None,
+    };
 
     // else, generate moves and score them recursively
     let mut moves = board.generate_moves();
@@ -125,10 +143,11 @@ fn alpha_beta(
     }
 
     // order the moves based on approximate importance to help remove other bad moves early
-    order_moves(&mut moves);
+    order_moves(&mut moves, best_move);
 
     // keep track of if this position's score is an upper bound or exact
     let mut flag = Alpha;
+    let mut best_move = None;
 
     // go through the moves and find the best score
     for mov in moves {
@@ -147,6 +166,7 @@ fn alpha_beta(
                     score: convert_score_insert(beta, ply),
                     depth,
                     flag: Beta,
+                    best_move: Some(mov),
                 },
             );
 
@@ -156,7 +176,8 @@ fn alpha_beta(
         // update our current best move
         if score > alpha {
             flag = Exact; // we now have an exact move score
-            alpha = score; // and should update the currently known best move
+            alpha = score; // update the currently known best move
+            best_move = Some(mov); // and store this move as best
         }
     }
 
@@ -167,6 +188,7 @@ fn alpha_beta(
             score: convert_score_insert(alpha, ply),
             depth,
             flag,
+            best_move,
         },
     );
 
@@ -194,7 +216,7 @@ fn quiesce(
     alpha = Score::max(alpha, current_score);
 
     let mut captures = board.generate_captures();
-    order_moves(&mut captures);
+    order_moves(&mut captures, None);
 
     // this is same as alpha beta search
     for mov in captures {

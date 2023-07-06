@@ -4,7 +4,7 @@ use crate::{
 };
 use std::time::Duration;
 
-const TT_SIZE: usize = 64;
+const TT_SIZE: usize = 512;
 const MAX_MOVES: usize = 200;
 
 // TODO - store some current time for each side and use that to determine search time

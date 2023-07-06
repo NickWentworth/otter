@@ -6,7 +6,9 @@ use crate::{
 // TODO - as of now, sort_by_cached_key is slower than sort_by_key, if this importance calculation grows, it may change
 
 /// Orders the moves in a given list according to the likelihood of the move being good
-pub fn order_moves(moves: &mut Vec<Move>) {
+/// 
+/// Optionally accepts a best move to place at the very start of the list
+pub fn order_moves(moves: &mut Vec<Move>, best_move: Option<Move>) {
     // generate an approximate importance value per move and sort by it
     moves.sort_by_key(|mov| {
         use MoveFlag::*;
@@ -33,6 +35,11 @@ pub fn order_moves(moves: &mut Vec<Move>) {
             CapturePromotion(_, promoted_piece) => promoted_piece.material_value(),
             _ => 0,
         };
+
+        // if there is a previously found best move, it should be at the front
+        if best_move == Some(*mov) {
+            importance = i16::MAX;
+        }
 
         importance
     });
