@@ -37,14 +37,16 @@ pub struct Board {
     piece_list: [Option<Piece>; BOARD_SIZE],
 
     // stack containing moves and matching info needed to unmake the previously made move
-    history: Vec<(Move, GameState)>,
+    move_history: Vec<(Move, GameState)>,
 
     // move generator structure to store move lookup tables
     move_generator: Rc<MoveGenerator>,
 
     // strategy to hash board state for transposition tables
     zobrist_values: Rc<ZobristValues>,
-    zobrist_hash: ZobristHash,
+
+    // stack containing previous hashes used for detection of threefold repetition
+    position_history: Vec<ZobristHash>,
 }
 
 impl Board {
@@ -124,14 +126,13 @@ impl Board {
                 fullmove: fen_parts[5].parse().unwrap(),
             },
             piece_list: [None; BOARD_SIZE],
-            history: Vec::new(),
+            move_history: Vec::new(),
             move_generator: Rc::new(MoveGenerator::new()),
             zobrist_values: Rc::new(ZobristValues::new()),
-            zobrist_hash: 0,
+            position_history: Vec::new(),
         };
 
         b.piece_list = b.build_piece_list();
-        b.zobrist_hash = b.zobrist();
 
         b
     }
@@ -213,7 +214,8 @@ impl Board {
     /// Assumes `m` is a valid and legal move
     pub fn make_move(&mut self, m: Move) {
         // push move and current game state to stack
-        self.history.push((m, self.game_state));
+        self.move_history.push((m, self.game_state));
+        self.position_history.push(self.zobrist());
 
         // store locally because of borrow checker
         let moving_color = self.game_state.current_turn;
@@ -324,10 +326,13 @@ impl Board {
         use MoveFlag::*;
 
         // pop previous move from history
-        let (m, prev_state) = match self.history.pop() {
+        let (m, prev_state) = match self.move_history.pop() {
             Some(history) => history,
             None => return, // if no history, return early
         };
+
+        // also pop this position from zobrist history
+        self.position_history.pop();
 
         // get color of the side that made the move
         let moving_color = self.game_state.current_turn.opposite();
@@ -419,6 +424,31 @@ impl Board {
         self.move_generator.in_check(&self)
     }
 
+    /// Checks for cases where a draw is possible and returns whether or not it is
+    pub fn is_drawable(&self) -> bool {
+        // check for 50 halfmove rule
+        if self.game_state.halfmove >= 50 {
+            return true;
+        }
+
+        // check for threefold repetitions
+        // only the current position is checked for repetitions, so ensure that after each move this is checked
+        let current_hash = self.zobrist();
+        let mut matches = 0;
+
+        for hash in self.position_history.iter() {
+            if *hash == current_hash {
+                matches += 1;
+
+                if matches >= 3 {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
     /// Returns the piece type at the given square or `None` if no piece is at the square
     pub fn piece_at(&self, square: Square) -> Option<Piece> {
         self.piece_list[square]
@@ -497,7 +527,7 @@ impl Board {
 
     /// Generates a zobrist hash value representing the current board state
     // TODO - incrementally update this hash instead of generating it fresh every time
-    pub fn zobrist(&mut self) -> ZobristHash {
+    pub fn zobrist(&self) -> ZobristHash {
         use CastleSide::*;
         use Color::*;
 
@@ -547,10 +577,10 @@ impl Clone for Board {
             colors: self.colors,
             game_state: self.game_state,
             piece_list: self.piece_list,
-            history: Vec::new(),
+            move_history: Vec::new(),
             move_generator: Rc::clone(&self.move_generator),
             zobrist_values: Rc::clone(&self.zobrist_values),
-            zobrist_hash: self.zobrist_hash,
+            position_history: Vec::new(),
         }
     }
 }

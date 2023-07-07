@@ -27,6 +27,12 @@ impl Engine {
     /// Plays currently loaded board state to completion
     pub fn play(&mut self) {
         for _ in 0..MAX_MOVES {
+            // check for draws
+            if self.board.is_drawable() {
+                println!("draw");
+                break;
+            }
+
             // generate best move
             match best_move(&mut self.board, &mut self.table, SEARCH_TIME) {
                 Some((best_move, evaluation)) => {

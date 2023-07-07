@@ -86,7 +86,10 @@ fn alpha_beta(
 ) -> Score {
     use ScoreLimit::*;
 
-    // TODO - handle 3-fold repetition draws
+    // TODO - this may not always properly handle draws, as transposition table sees repetitions 1, 2, and 3 as the same hash
+    if board.is_drawable() {
+        return DRAW;
+    }
 
     // base case - if depth is 0, evaluate the board state
     if depth == 0 {
