@@ -24,8 +24,84 @@ impl Engine {
         }
     }
 
+    /// Runs in a loop accepting commands from user
+    // TODO -  clean this up
+    pub fn run(&mut self) {
+        loop {
+            let mut command = String::new();
+            if let Err(err) = std::io::stdin().read_line(&mut command) {
+                println!("{}", err);
+                continue;
+            }
+
+            match command {
+                // "fen <fen>"
+                // setup board from fen string
+                _ if command.starts_with("fen ") => {
+                    let fen = command.trim().chars().skip(4).collect::<String>();
+                    self.board = Board::new(fen);
+                }
+
+                // "search <ms>"
+                // prints the best move and evaluation of the position, with allotted time to search
+                _ if command.starts_with("search ") => {
+                    let time = command
+                        .trim()
+                        .chars()
+                        .skip(7)
+                        .collect::<String>()
+                        .parse::<u64>();
+
+                    if let Err(err) = time {
+                        println!("Error parsing time: {}", err.to_string());
+                        continue;
+                    }
+
+                    match best_move(
+                        &mut self.board,
+                        &mut self.table,
+                        Duration::from_millis(time.unwrap()),
+                    ) {
+                        Some((best_move, evaluation)) => {
+                            println!("Move: {}\nEvaluation: {}", best_move, evaluation);
+                        }
+
+                        None => println!("No valid moves from this position"),
+                    }
+                }
+
+                // "move <algebraic notation>"
+                // makes a move from the current position, if legal
+                _ if command.starts_with("move ") => {
+                    let move_string = command.trim().chars().skip(5).collect::<String>();
+
+                    match self
+                        .board
+                        .generate_moves()
+                        .into_iter()
+                        .find(|mov| mov.to_string() == move_string)
+                    {
+                        Some(mov) => self.board.make_move(mov),
+                        None => println!("{} is not a valid move", move_string),
+                    }
+                }
+
+                // "play"
+                // plays the game to completion from current position
+                _ if command.starts_with("play") => self.play(),
+
+                // "display"
+                // prints current board state
+                _ if command.starts_with("display") => println!("{}", self.board),
+
+                // catch for invalid commands
+                _ => println!("{} is not a valid command!", command),
+            }
+        }
+    }
+
     /// Plays currently loaded board state to completion
-    pub fn play(&mut self) {
+    fn play(&mut self) {
         for _ in 0..MAX_MOVES {
             // check for draws
             if self.board.is_drawable() {
