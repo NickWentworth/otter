@@ -1,7 +1,7 @@
 mod alpha_beta;
 mod evaluate;
 mod ordering;
-mod tables;
+mod pst;
 mod tt;
 
 pub use alpha_beta::{best_move, mate_in, SearchTT};

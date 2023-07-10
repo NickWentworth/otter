@@ -1,6 +1,6 @@
 use crate::board::Board;
 
-use super::{tables::piece_square_table, Score};
+use super::{pst::piece_square_table, Score};
 
 /// Evaluate the board position and assign a value representing the active side's advantage
 pub fn evaluate(board: &Board) -> Score {
@@ -13,14 +13,14 @@ pub fn evaluate(board: &Board) -> Score {
         let active_piece = board.piece_at(active_square).unwrap();
 
         material += active_piece.material_value();
-        position += piece_square_table(active_piece, board.active_color())[active_square];
+        position += piece_square_table(active_piece, board.active_color(), active_square);
     }
 
     for inactive_square in board.inactive_pieces() {
         let inactive_piece = board.piece_at(inactive_square).unwrap();
 
         material -= inactive_piece.material_value();
-        position -= piece_square_table(inactive_piece, board.inactive_color())[inactive_square];
+        position -= piece_square_table(inactive_piece, board.inactive_color(), inactive_square);
     }
 
     material + position
