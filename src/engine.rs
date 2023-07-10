@@ -94,8 +94,22 @@ impl Engine {
                 // prints current board state
                 _ if command.starts_with("display") => println!("{}", self.board),
 
+                // "help"
+                // prints all valid commands
+                _ if command.starts_with("help") => {
+                    println!("All valid commands:\n");
+                    println!("fen <fen>\n\tSetup board from given fen string\n");
+                    println!("search <ms>\n\tSearch for the best move at the current position, allowing given time in ms\n");
+                    println!("move <algebraic>\n\tMake move on board from given notation, if move is legal\n");
+                    println!("play\n\tPlay game to completion from current position\n");
+                    println!("display\n\tPrint current board state to screen\n")
+                }
+
                 // catch for invalid commands
-                _ => println!("{} is not a valid command!", command),
+                _ => println!(
+                    "{} is not a valid command! Try \"help\" for a list of valid commands with their parameters.",
+                    command
+                ),
             }
         }
     }
