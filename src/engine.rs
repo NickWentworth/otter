@@ -1,25 +1,30 @@
 use crate::{
     board::{Board, DEFAULT_FEN},
+    core::{Color, NUM_COLORS},
     search::{best_move, SearchTT},
 };
 use std::{io::stdin, time::Duration};
 
 const TT_SIZE: usize = 512;
 
-// TODO - store some current time for each side and use that to determine search time
-const SEARCH_TIME: Duration = std::time::Duration::from_millis(1000);
+/// Maximum search time allowed to limit endless searching
+const MAX_SEARCH_TIME: Duration = std::time::Duration::from_millis(1000);
 
 pub struct Engine {
     board: Board,
     table: SearchTT,
+
+    // time controls per side
+    time: [Duration; NUM_COLORS],
 }
 
 impl Engine {
     /// Generates a new engine, initializing a board and transposition table
-    pub fn new(fen: String) -> Engine {
+    pub fn new() -> Engine {
         Engine {
-            board: Board::new(fen),
+            board: Board::new(DEFAULT_FEN.to_string()),
             table: SearchTT::new(TT_SIZE),
+            time: [Duration::MAX; 2], // start out with no time limit
         }
     }
 
@@ -84,10 +89,28 @@ impl Engine {
                 },
 
                 Some("go") => {
-                    // TODO - handle parameters like "wtime", "btime", etc.
+                    while let Some(param) = tokens.next() {
+                        match param {
+                            "wtime" => {
+                                let time = tokens.next().unwrap().parse().unwrap();
+                                self.time[Color::White] = Duration::from_millis(time);
+                            }
+
+                            "btime" => {
+                                let time = tokens.next().unwrap().parse().unwrap();
+                                self.time[Color::Black] = Duration::from_millis(time);
+                            }
+
+                            _ => (),
+                        }
+                    }
+
+                    // calculate how much time we can search for
+                    let search_time = self.calculate_search_time();
+                    println!("Searching for {:?}", search_time);
 
                     // find best move according to given parameters and print it to stdout
-                    let best_move = best_move(&mut self.board, &mut self.table, SEARCH_TIME);
+                    let best_move = best_move(&mut self.board, &mut self.table, search_time);
                     if let Some((mov, _)) = best_move {
                         println!("bestmove {}", mov);
                     }
@@ -101,5 +124,13 @@ impl Engine {
                 None => (),
             }
         }
+    }
+
+    /// Calculates a reasonable time to search for a move based on the active color's available time
+    fn calculate_search_time(&self) -> Duration {
+        let available_time = self.time[self.board.active_color()];
+
+        // for now, try to make around 30 moves at this allotted time (or default to a max search time)
+        Duration::min(available_time / 30, MAX_SEARCH_TIME)
     }
 }

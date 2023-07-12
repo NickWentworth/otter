@@ -1,4 +1,7 @@
-use std::ops::{Index, IndexMut};
+use std::{
+    ops::{Index, IndexMut},
+    time::Duration,
+};
 
 mod bitboard;
 mod color;
@@ -41,3 +44,6 @@ index_traits!(Color, Square);
 
 // bitboard lookup tables
 index_traits!(Color, [Bitboard; BOARD_SIZE]);
+
+// duration tables per side for engine
+index_traits!(Color, Duration);
