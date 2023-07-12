@@ -9,11 +9,12 @@ mod fen;
 mod move_generator;
 mod zobrist;
 
+pub use fen::DEFAULT_FEN;
 pub use move_generator::{Move, MoveFlag};
 pub use zobrist::ZobristHash;
 
 use castling::{CastleRights, CastleSide};
-use fen::{check_valid_fen, DEFAULT_FEN};
+use fen::check_valid_fen;
 use move_generator::MoveGenerator;
 use zobrist::ZobristValues;
 

@@ -47,7 +47,6 @@ pub fn best_move(
 
         // break if allotted search time was reached
         if used_time.elapsed() >= search_time {
-            print!("[time] depth {}: ", depth);
             break;
         }
 
@@ -66,7 +65,6 @@ pub fn best_move(
         // leave early if we found a forced mate sequence
         if let Some((_, score)) = best {
             if score.abs() > CHECKMATE_THRESHOLD {
-                print!("[mate] depth {}: ", depth);
                 break;
             }
         }

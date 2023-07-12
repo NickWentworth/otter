@@ -1,14 +1,13 @@
 use crate::{
-    board::Board,
-    search::{best_move, mate_in, SearchTT},
+    board::{Board, DEFAULT_FEN},
+    search::{best_move, SearchTT},
 };
-use std::time::Duration;
+use std::{io::stdin, time::Duration};
 
 const TT_SIZE: usize = 512;
-const MAX_MOVES: usize = 200;
 
 // TODO - store some current time for each side and use that to determine search time
-const SEARCH_TIME: Duration = std::time::Duration::from_secs(1);
+const SEARCH_TIME: Duration = std::time::Duration::from_millis(1000);
 
 pub struct Engine {
     board: Board,
@@ -24,133 +23,83 @@ impl Engine {
         }
     }
 
-    /// Runs in a loop accepting commands from user
-    // TODO -  clean this up
-    pub fn run(&mut self) {
+    /// Starts the engine, which communicates with a game client via Universal Chess Interface (UCI)
+    ///
+    /// Useful info about UCI here: https://gist.github.com/aliostad/f4470274f39d29b788c1b09519e67372
+    pub fn uci(&mut self) {
         loop {
+            // get next command from stdin
             let mut command = String::new();
-            if let Err(err) = std::io::stdin().read_line(&mut command) {
-                println!("{}", err);
-                continue;
-            }
+            stdin().read_line(&mut command).unwrap();
 
-            match command {
-                // "fen <fen>"
-                // setup board from fen string
-                _ if command.starts_with("fen ") => {
-                    let fen = command.trim().chars().skip(4).collect::<String>();
-                    self.board = Board::new(fen);
+            // start reading through the tokens in the command
+            let mut tokens = command.trim().split(' ');
+
+            match tokens.next() {
+                Some("uci") => {
+                    // print out some info about the engine
+                    println!("id name Engine Name");
+                    println!("id author Nick Wentworth");
+                    println!("uciok");
                 }
 
-                // "search <ms>"
-                // prints the best move and evaluation of the position, with allotted time to search
-                _ if command.starts_with("search ") => {
-                    let time = command
-                        .trim()
-                        .chars()
-                        .skip(7)
-                        .collect::<String>()
-                        .parse::<u64>();
+                Some("ucinewgame") => {
+                    // refresh transposition table when a new game is started
+                    self.table = SearchTT::new(TT_SIZE);
+                }
 
-                    if let Err(err) = time {
-                        println!("Error parsing time: {}", err.to_string());
-                        continue;
+                Some("isready") => println!("readyok"),
+
+                Some("position") => match tokens.next() {
+                    // given a fen string
+                    Some("fen") => {
+                        // join remaining tokens into the fen string
+                        let fen = tokens.collect::<Vec<_>>().join(" ");
+                        self.board = Board::new(fen);
                     }
 
-                    match best_move(
-                        &mut self.board,
-                        &mut self.table,
-                        Duration::from_millis(time.unwrap()),
-                    ) {
-                        Some((best_move, evaluation)) => {
-                            println!("Move: {}\nEvaluation: {}", best_move, evaluation);
+                    // list of moves made from starting position
+                    Some("startpos") => {
+                        // next token should be "moves", so ignore it
+                        tokens.next();
+
+                        // set board to starting position
+                        self.board = Board::new(DEFAULT_FEN.to_string());
+
+                        while let Some(move_string) = tokens.next() {
+                            // try to find this move string from all current legal move strings
+                            match self
+                                .board
+                                .generate_moves()
+                                .into_iter()
+                                .find(|mov| mov.to_string() == move_string)
+                            {
+                                Some(legal_move) => self.board.make_move(legal_move),
+                                None => println!("{} is not a legal move!", move_string),
+                            }
                         }
+                    }
 
-                        None => println!("No valid moves from this position"),
+                    _ => (),
+                },
+
+                Some("go") => {
+                    // TODO - handle parameters like "wtime", "btime", etc.
+
+                    // find best move according to given parameters and print it to stdout
+                    let best_move = best_move(&mut self.board, &mut self.table, SEARCH_TIME);
+                    if let Some((mov, _)) = best_move {
+                        println!("bestmove {}", mov);
                     }
                 }
 
-                // "move <algebraic notation>"
-                // makes a move from the current position, if legal
-                _ if command.starts_with("move ") => {
-                    let move_string = command.trim().chars().skip(5).collect::<String>();
+                // -------------------- non-uci commands -------------------- //
+                Some("display") => println!("{}", self.board),
 
-                    match self
-                        .board
-                        .generate_moves()
-                        .into_iter()
-                        .find(|mov| mov.to_string() == move_string)
-                    {
-                        Some(mov) => self.board.make_move(mov),
-                        None => println!("{} is not a valid move", move_string),
-                    }
-                }
-
-                // "play"
-                // plays the game to completion from current position
-                _ if command.starts_with("play") => self.play(),
-
-                // "display"
-                // prints current board state
-                _ if command.starts_with("display") => println!("{}", self.board),
-
-                // "help"
-                // prints all valid commands
-                _ if command.starts_with("help") => {
-                    println!("All valid commands:\n");
-                    println!("fen <fen>\n\tSetup board from given fen string\n");
-                    println!("search <ms>\n\tSearch for the best move at the current position, allowing given time in ms\n");
-                    println!("move <algebraic>\n\tMake move on board from given notation, if move is legal\n");
-                    println!("play\n\tPlay game to completion from current position\n");
-                    println!("display\n\tPrint current board state to screen\n")
-                }
-
-                // catch for invalid commands
-                _ => println!(
-                    "{} is not a valid command! Try \"help\" for a list of valid commands with their parameters.",
-                    command
-                ),
+                // if unable to match a command, do nothing
+                Some(_) => (),
+                None => (),
             }
         }
-    }
-
-    /// Plays currently loaded board state to completion
-    fn play(&mut self) {
-        for _ in 0..MAX_MOVES {
-            // check for draws
-            if self.board.is_drawable() {
-                println!("draw");
-                break;
-            }
-
-            // generate best move
-            match best_move(&mut self.board, &mut self.table, SEARCH_TIME) {
-                Some((best_move, evaluation)) => {
-                    // make the move
-                    self.board.make_move(best_move);
-
-                    match mate_in(evaluation) {
-                        Some(mate) => println!("{} (M{})", best_move, mate),
-                        None => println!("{} ({})", best_move, evaluation),
-                    }
-                }
-
-                None => {
-                    // if no moves can be generated, game is over
-                    print!("game over: ");
-
-                    if self.board.in_check() {
-                        println!("{:?} wins", self.board.active_color().opposite())
-                    } else {
-                        println!("draw");
-                    }
-
-                    break;
-                }
-            }
-        }
-
-        // self.table.print_stats();
-        // println!("{}", self.board);
     }
 }
