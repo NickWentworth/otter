@@ -1,7 +1,7 @@
 use crate::{
     board::{Board, DEFAULT_FEN},
     core::{Color, NUM_COLORS},
-    search::{best_move, SearchTT},
+    search::Searcher,
 };
 use std::{io::stdin, time::Duration};
 
@@ -12,7 +12,7 @@ const MAX_SEARCH_TIME: Duration = std::time::Duration::from_millis(1000);
 
 pub struct Engine {
     board: Board,
-    table: SearchTT,
+    searcher: Searcher,
 
     // time controls per side
     time: [Duration; NUM_COLORS],
@@ -23,7 +23,7 @@ impl Engine {
     pub fn new() -> Engine {
         Engine {
             board: Board::new(DEFAULT_FEN.to_string()),
-            table: SearchTT::new(TT_SIZE),
+            searcher: Searcher::new(TT_SIZE),
             time: [Duration::MAX; 2], // start out with no time limit
         }
     }
@@ -50,7 +50,7 @@ impl Engine {
 
                 Some("ucinewgame") => {
                     // refresh transposition table when a new game is started
-                    self.table = SearchTT::new(TT_SIZE);
+                    self.searcher.reset_tt(TT_SIZE);
                 }
 
                 Some("isready") => println!("readyok"),
@@ -110,7 +110,7 @@ impl Engine {
                     println!("Searching for {:?}", search_time);
 
                     // find best move according to given parameters and print it to stdout
-                    let best_move = best_move(&mut self.board, &mut self.table, search_time);
+                    let best_move = self.searcher.best_move(&mut self.board, search_time);
                     if let Some((mov, _)) = best_move {
                         println!("bestmove {}", mov);
                     }
