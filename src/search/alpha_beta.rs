@@ -1,5 +1,5 @@
 use crate::board::{Board, Move};
-use std::time::{Duration, Instant};
+use std::sync::{Arc, Mutex};
 
 use super::{evaluate::evaluate, ordering::order_moves, tt::TranspositionTable, Score};
 
@@ -34,33 +34,30 @@ pub struct ScoreData {
 
 pub struct Searcher {
     table: SearchTT,
+    search_active: Arc<Mutex<bool>>, // variable to track if search should stay active or not
 }
 
 impl Searcher {
     pub fn new(tt_size: usize) -> Searcher {
         Searcher {
             table: SearchTT::new(tt_size),
+            search_active: Arc::new(Mutex::new(false)),
         }
     }
 
+    /// Wipes transposition table data and sets a new size
     pub fn reset_tt(&mut self, tt_size: usize) {
         self.table = SearchTT::new(tt_size);
     }
 
     /// Returns an estimation of the best move by recursively checking opponent's best response is to this move
-    pub fn best_move(&mut self, board: &mut Board, search_time: Duration) -> Option<(Move, Score)> {
+    pub fn best_move(&mut self, board: &mut Board) -> Option<(Move, Score)> {
         let mut best: Option<(Move, i16)> = None;
-        let used_time = Instant::now();
 
         // iterative deepening - keep incrementing depth until an alloted search time is used up
         for depth in 1..MAX_DEPTH {
-            // break if allotted search time was reached
-            if used_time.elapsed() >= search_time {
-                break;
-            }
-
             // generate a tuple of moves along with their scores and find the max
-            best = board
+            let result = board
                 .generate_moves()
                 .into_iter()
                 .map(|mov| {
@@ -70,6 +67,12 @@ impl Searcher {
                     (mov, score)
                 })
                 .max_by_key(|(_, score)| score.clone()); // max by the score value
+
+            // only assign result to the current best if the search was not terminated early
+            match self.search_terminated() {
+                true => break,
+                false => best = result,
+            }
 
             // leave early if we found a forced mate sequence
             if let Some((_, score)) = best {
@@ -92,6 +95,10 @@ impl Searcher {
         ply: u8,
     ) -> Score {
         use ScoreLimit::*;
+
+        if self.search_terminated() {
+            return 0;
+        }
 
         // TODO - this may not always properly handle draws, as transposition table sees repetitions 1, 2, and 3 as the same hash
         if board.is_drawable() {
@@ -166,6 +173,11 @@ impl Searcher {
             let score = -self.alpha_beta(board, -beta, -alpha, depth - 1, ply + 1);
             board.unmake_move();
 
+            // check that the search is not over
+            if self.search_terminated() {
+                return 0;
+            }
+
             // if the evaluation for this move is better than the opponent's current best option,
             // they won't allow this to happen, so this move wouldn't even be considered
             if score >= beta {
@@ -238,6 +250,19 @@ impl Searcher {
         }
 
         alpha
+    }
+
+    // TODO - this could likely be abstracted away from the engine or other class controlling the search
+    /// Clones the `search_active` variable for this struct to allow external control of search time
+    pub fn get_search_control(&self) -> Arc<Mutex<bool>> {
+        Arc::clone(&self.search_active)
+    }
+
+    /// Checks mutex used to control whether or not the search has been terminated yet
+    ///
+    /// Must be checked within searches to enforce strict time management
+    fn search_terminated(&self) -> bool {
+        !(*self.search_active.lock().unwrap())
     }
 
     // checkmates are stored in the transposition table as "mate in _ from this position" scores
