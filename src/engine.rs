@@ -43,7 +43,7 @@ impl Engine {
             match tokens.next() {
                 Some("uci") => {
                     // print out some info about the engine
-                    println!("id name Engine Name");
+                    println!("id name Otter 1.0");
                     println!("id author Nick Wentworth");
                     println!("uciok");
                 }
