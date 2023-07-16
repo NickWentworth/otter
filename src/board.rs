@@ -135,6 +135,21 @@ impl Board {
 
         b.piece_list = b.build_piece_list();
 
+        // other systems expect board to be in a valid state
+        // for example the current moving side cannot have the opposing king in check
+        // TODO - expand upon fen validation to check for this
+        use MoveFlag::*;
+        let captures = b.generate_captures();
+        for capture in captures {
+            // ensure a king is not being captured right now
+            match capture.flag {
+                Capture(Piece::King) | CapturePromotion(Piece::King, _) => {
+                    panic!("This is not a valid fen! The king is able to be captured!")
+                }
+                _ => (),
+            }
+        }
+
         b
     }
 
