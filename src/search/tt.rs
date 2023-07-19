@@ -1,5 +1,5 @@
 use crate::board::ZobristHash;
-use std::mem::size_of;
+use std::{fmt::Display, mem::size_of};
 
 // TODO - add buckets to allow multiple entries stored at a single index
 
@@ -81,28 +81,34 @@ where
         }
     }
 
-    /// Prints debug statistics for the table
-    pub fn print_stats(&self) {
-        println!("capacity: {}", self.capacity);
-        println!(
-            "entries (used %): {} ({:.2}%)",
-            self.used,
-            self.used as f32 / self.capacity as f32 * 100f32
-        );
-
-        println!("total accesses: {}", self.total);
-        println!(
-            "hits (rate %): {} ({:.2}%)",
-            self.hits,
-            self.hits as f32 / self.total as f32 * 100f32
-        );
-
-        println!("collisions: {}", self.collisions);
-        println!();
-    }
-
     /// Returns the index in the table of the given hash
     fn hash_index(&self, hash: ZobristHash) -> usize {
         (hash as usize) % self.capacity
+    }
+}
+
+impl<D> Display for TranspositionTable<D> {
+    /// Usage statistics for the table
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // capacity info
+        writeln!(f, "capacity: {}", self.capacity)?;
+        writeln!(
+            f,
+            "entries (used %): {} ({:.2}%)",
+            self.used,
+            (self.used as f32) / (self.capacity as f32) * 100f32
+        )?;
+
+        // accessing info
+        writeln!(f, "total accesses: {}", self.total)?;
+        writeln!(
+            f,
+            "hits (rate %): {} ({:.2}%)",
+            self.hits,
+            (self.hits as f32) / (self.total as f32) * 100f32
+        )?;
+
+        // collisions info
+        writeln!(f, "collisions: {}", self.collisions)
     }
 }

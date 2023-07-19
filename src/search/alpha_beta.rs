@@ -1,5 +1,8 @@
 use crate::board::{Board, Move};
-use std::sync::{Arc, Mutex};
+use std::{
+    fmt::Display,
+    sync::{Arc, Mutex},
+};
 
 use super::{evaluate::evaluate, ordering::order_moves, tt::TranspositionTable, Score};
 
@@ -286,5 +289,11 @@ impl Searcher {
         } else {
             score
         }
+    }
+}
+
+impl Display for Searcher {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.table)
     }
 }

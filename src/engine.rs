@@ -127,11 +127,15 @@ impl Engine {
                 }
 
                 // -------------------- non-uci commands -------------------- //
+
+                // diplay board info
                 Some("display") => println!("{}", self.board),
 
+                // display transposition table statistics
+                Some("stats") => println!("{}", self.searcher),
+
                 // if unable to match a command, do nothing
-                Some(_) => (),
-                None => (),
+                Some(_) | None => (),
             }
         }
     }
