@@ -4,6 +4,7 @@ use crate::{
 };
 
 mod direction;
+mod magic;
 mod masks;
 mod moves;
 
@@ -13,6 +14,7 @@ use direction::{
     generate_king_moves, generate_knight_moves, generate_pawn_attacks, generate_pawn_double_moves,
     generate_pawn_single_moves, generate_sliding_attacks, Direction,
 };
+use magic::generate_rook_magics;
 use masks::{CastleMask, RankPositionMask};
 
 type DirectionAttackPair = (isize, [Bitboard; BOARD_SIZE]);
@@ -35,6 +37,10 @@ pub struct MoveGenerator {
 
 impl MoveGenerator {
     pub fn new() -> MoveGenerator {
+        // TEMP - testing out magic generation function
+        generate_rook_magics();
+        // ----
+
         MoveGenerator {
             king_moves: generate_king_moves(),
             knight_moves: generate_knight_moves(),

@@ -1,8 +1,8 @@
 use std::{
     fmt::Display,
     ops::{
-        BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not, Shl, ShlAssign, Shr,
-        ShrAssign,
+        BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Mul, Not, Shl, ShlAssign,
+        Shr, ShrAssign, Sub,
     },
 };
 
@@ -228,5 +228,21 @@ impl BitXor for Bitboard {
 impl BitXorAssign for Bitboard {
     fn bitxor_assign(&mut self, rhs: Self) {
         *self = *self ^ rhs;
+    }
+}
+
+// arithmetic operators for magic numbers, ignoring overflows
+impl Mul for Bitboard {
+    type Output = Bitboard;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        Bitboard(self.0 * rhs.0)
+    }
+}
+impl Sub for Bitboard {
+    type Output = Bitboard;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Bitboard(self.0 - rhs.0)
     }
 }
