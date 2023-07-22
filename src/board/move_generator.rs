@@ -14,7 +14,7 @@ use direction::{
     generate_king_moves, generate_knight_moves, generate_pawn_attacks, generate_pawn_double_moves,
     generate_pawn_single_moves, generate_sliding_attacks, Direction,
 };
-use magic::generate_rook_magics;
+use magic::Magic;
 use masks::{CastleMask, RankPositionMask};
 
 type DirectionAttackPair = (isize, [Bitboard; BOARD_SIZE]);
@@ -38,7 +38,14 @@ pub struct MoveGenerator {
 impl MoveGenerator {
     pub fn new() -> MoveGenerator {
         // TEMP - testing out magic generation function
-        generate_rook_magics();
+        let rooks = Magic::rook();
+
+        let blockers =
+            Bitboard(0b11100100_00000000_00000000_00000000_00000000_00000000_00000000_00000000);
+        let square = 0 as Square;
+
+        println!("{}", rooks[square].get(blockers));
+        // Magic::bishop();
         // ----
 
         MoveGenerator {
