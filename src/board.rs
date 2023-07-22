@@ -16,7 +16,7 @@ pub use zobrist::ZobristHash;
 use castling::{CastleRights, CastleSide};
 use fen::check_valid_fen;
 use move_generator::MoveGenerator;
-use zobrist::ZobristValues;
+use zobrist::ZOBRIST;
 
 /// Variables related to conditions of the game
 #[derive(Clone, Copy)]
@@ -42,9 +42,6 @@ pub struct Board {
 
     // move generator structure to store move lookup tables
     move_generator: Rc<MoveGenerator>,
-
-    // strategy to hash board state for transposition tables
-    zobrist_values: Rc<ZobristValues>,
 
     // stack containing previous hashes used for detection of threefold repetition
     position_history: Vec<ZobristHash>,
@@ -129,7 +126,6 @@ impl Board {
             piece_list: [None; BOARD_SIZE],
             move_history: Vec::new(),
             move_generator: Rc::new(MoveGenerator::new()),
-            zobrist_values: Rc::new(ZobristValues::new()),
             position_history: Vec::new(),
         };
 
@@ -558,7 +554,7 @@ impl Board {
                         false => Color::Black,
                     };
 
-                    hash ^= self.zobrist_values.piece(square, *piece, color);
+                    hash ^= ZOBRIST.piece(square, *piece, color);
                 }
                 None => (),
             }
@@ -568,18 +564,16 @@ impl Board {
         for color in [White, Black] {
             for castle_side in [Kingside, Queenside] {
                 if self.game_state.castle_rights.get(color, castle_side) {
-                    hash ^= self.zobrist_values.castling(castle_side, color);
+                    hash ^= ZOBRIST.castling(castle_side, color);
                 }
             }
         }
 
         // active turn
-        hash ^= self.zobrist_values.active(self.game_state.current_turn);
+        hash ^= ZOBRIST.active(self.game_state.current_turn);
 
         // en passant
-        hash ^= self
-            .zobrist_values
-            .en_passant(self.game_state.en_passant_square);
+        hash ^= ZOBRIST.en_passant(self.game_state.en_passant_square);
 
         hash
     }
@@ -595,7 +589,6 @@ impl Clone for Board {
             piece_list: self.piece_list,
             move_history: Vec::new(),
             move_generator: Rc::clone(&self.move_generator),
-            zobrist_values: Rc::clone(&self.zobrist_values),
             position_history: Vec::new(),
         }
     }

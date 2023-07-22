@@ -1,8 +1,14 @@
+use lazy_static::lazy_static;
 use rand::Rng;
 
 use crate::core::{Color, Piece, Square, BOARD_SIZE, NUM_COLORS, NUM_PIECES};
 
 use super::castling::{CastleSide, NUM_CASTLE_SIDES};
+
+lazy_static! {
+    /// Static reference to zobrist values for board hashing
+    pub static ref ZOBRIST: ZobristValues = ZobristValues::new();
+}
 
 /// Type for the underlying hash value
 pub type ZobristHash = u64;
@@ -26,7 +32,7 @@ pub struct ZobristValues {
 }
 
 impl ZobristValues {
-    pub fn new() -> ZobristValues {
+    fn new() -> ZobristValues {
         // reference random number generator
         let mut rng = rand::thread_rng();
 

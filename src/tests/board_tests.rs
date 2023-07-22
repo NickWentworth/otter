@@ -18,10 +18,11 @@ mod tests {
 
     #[test]
     fn test_board_zobrist() {
+        let default_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+        
         // check initial hash is the same
-        let mut b1 =
-            Board::new("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1".to_string());
-        let mut b2 = b1.clone();
+        let mut b1 = Board::new(default_fen.to_string());
+        let mut b2 = Board::new(default_fen.to_string());
 
         assert_eq!(b1.zobrist(), b2.zobrist());
 
