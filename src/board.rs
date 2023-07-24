@@ -40,9 +40,6 @@ pub struct Board {
     // stack containing moves and matching info needed to unmake the previously made move
     move_history: Vec<(Move, GameState)>,
 
-    // move generator structure to store move lookup tables
-    move_generator: Rc<MoveGenerator>,
-
     // stack containing previous hashes used for detection of threefold repetition
     position_history: Vec<ZobristHash>,
 }
@@ -125,7 +122,6 @@ impl Board {
             },
             piece_list: [None; BOARD_SIZE],
             move_history: Vec::new(),
-            move_generator: Rc::new(MoveGenerator::new()),
             position_history: Vec::new(),
         };
 
@@ -418,14 +414,13 @@ impl Board {
 
     /// Generates all legal moves from this position
     pub fn generate_moves(&self) -> Vec<Move> {
-        self.move_generator.generate_moves(&self)
+        MoveGenerator::generate_moves(&self)
     }
 
     /// Generates all legal capture moves from this position
     // TODO - add capture-only generation to move generator, this filtering is too slow
     pub fn generate_captures(&self) -> Vec<Move> {
-        self.move_generator
-            .generate_moves(&self)
+        MoveGenerator::generate_moves(&self)
             .into_iter()
             .filter(|mov| mov.is_capture())
             .collect()
@@ -433,7 +428,7 @@ impl Board {
 
     /// Returns whether or not the active color is in check in this position
     pub fn in_check(&self) -> bool {
-        self.move_generator.in_check(&self)
+        MoveGenerator::in_check(&self)
     }
 
     /// Checks for cases where a draw is possible and returns whether or not it is
@@ -588,7 +583,6 @@ impl Clone for Board {
             game_state: self.game_state,
             piece_list: self.piece_list,
             move_history: Vec::new(),
-            move_generator: Rc::clone(&self.move_generator),
             position_history: Vec::new(),
         }
     }

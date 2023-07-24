@@ -1,6 +1,33 @@
 use crate::core::{Bitboard, Color, BOARD_SIZE, NUM_COLORS};
+use lazy_static::lazy_static;
 
 use super::masks::{FileBoundMask, RankPositionMask};
+
+pub type LookupTable = [Bitboard; BOARD_SIZE]; // mapping of each square to a bitboard
+pub type DirectionTablePair = (isize, LookupTable); // pair of a direction and the lookup table generated from it
+
+lazy_static! {
+    pub static ref KING_MOVES: LookupTable = generate_king_moves();
+    pub static ref KNIGHT_MOVES: LookupTable = generate_knight_moves();
+
+    pub static ref PAWN_SINGLE: [LookupTable; NUM_COLORS] = generate_pawn_single_moves();
+    pub static ref PAWN_DOUBLE: [LookupTable; NUM_COLORS] = generate_pawn_double_moves();
+    pub static ref PAWN_ATTACKS: [LookupTable; NUM_COLORS] = generate_pawn_attacks();
+
+    // TODO - generate queen moves by combining bishop and rook moves
+    pub static ref BISHOP_MOVES: Vec<DirectionTablePair> = Direction::DIAGONALS
+        .map(|dir| (dir, generate_sliding_attacks(dir)))
+        .into_iter()
+        .collect::<Vec<_>>();
+    pub static ref ROOK_MOVES: Vec<DirectionTablePair> = Direction::STRAIGHTS
+        .map(|dir| (dir, generate_sliding_attacks(dir)))
+        .into_iter()
+        .collect::<Vec<_>>();
+    pub static ref QUEEN_MOVES: Vec<DirectionTablePair> = Direction::ALL
+        .map(|dir| (dir, generate_sliding_attacks(dir)))
+        .into_iter()
+        .collect::<Vec<_>>();
+}
 
 /// Describes the different directions of movement on the board as constants
 pub struct Direction;
@@ -16,6 +43,16 @@ impl Direction {
 
     pub const DIAGONALS: [isize; 4] = [Self::NE, Self::NW, Self::SE, Self::SW];
     pub const STRAIGHTS: [isize; 4] = [Self::N, Self::E, Self::S, Self::W];
+    pub const ALL: [isize; 8] = [
+        Self::N,
+        Self::NE,
+        Self::E,
+        Self::SE,
+        Self::S,
+        Self::SW,
+        Self::W,
+        Self::NW,
+    ];
 }
 
 /// Generates a lookup table all king moves at each square

@@ -1,6 +1,6 @@
 use crate::{
     board::Board,
-    core::{Bitboard, Color, Piece, Square, BOARD_SIZE, NUM_COLORS, PROMOTION_PIECES},
+    core::{Bitboard, Color, Piece, Square, BOARD_SIZE, PROMOTION_PIECES},
 };
 
 mod direction;
@@ -11,67 +11,16 @@ mod moves;
 pub use moves::{Move, MoveFlag};
 
 use direction::{
-    generate_king_moves, generate_knight_moves, generate_pawn_attacks, generate_pawn_double_moves,
-    generate_pawn_single_moves, generate_sliding_attacks, Direction,
+    BISHOP_MOVES, KING_MOVES, KNIGHT_MOVES, PAWN_ATTACKS, PAWN_DOUBLE, PAWN_SINGLE, QUEEN_MOVES,
+    ROOK_MOVES,
 };
 use magic::Magic;
 use masks::{CastleMask, RankPositionMask};
 
-type DirectionAttackPair = (isize, [Bitboard; BOARD_SIZE]);
-
-pub struct MoveGenerator {
-    // simple move lookup boards
-    king_moves: [Bitboard; BOARD_SIZE],
-    knight_moves: [Bitboard; BOARD_SIZE],
-
-    // pawn moves are split between single pushes, double pushes, and attacks
-    pawn_single: [[Bitboard; BOARD_SIZE]; NUM_COLORS],
-    pawn_double: [[Bitboard; BOARD_SIZE]; NUM_COLORS],
-    pawn_attacks: [[Bitboard; BOARD_SIZE]; NUM_COLORS],
-
-    // sliding move lookup boards
-    diagonal_attacks: Vec<DirectionAttackPair>,
-    straight_attacks: Vec<DirectionAttackPair>,
-    all_attacks: Vec<DirectionAttackPair>,
-}
-
+pub struct MoveGenerator;
 impl MoveGenerator {
-    pub fn new() -> MoveGenerator {
-        // TEMP - testing out magic generation function
-        let rooks = Magic::rook();
-
-        let blockers =
-            Bitboard(0b11100100_00000000_00000000_00000000_00000000_00000000_00000000_00000000);
-        let square = 0 as Square;
-
-        println!("{}", rooks[square].get(blockers));
-        // Magic::bishop();
-        // ----
-
-        MoveGenerator {
-            king_moves: generate_king_moves(),
-            knight_moves: generate_knight_moves(),
-
-            pawn_single: generate_pawn_single_moves(),
-            pawn_double: generate_pawn_double_moves(),
-            pawn_attacks: generate_pawn_attacks(),
-
-            diagonal_attacks: Direction::DIAGONALS
-                .map(|direction| (direction, generate_sliding_attacks(direction)))
-                .to_vec(),
-            straight_attacks: Direction::STRAIGHTS
-                .map(|direction| (direction, generate_sliding_attacks(direction)))
-                .to_vec(),
-            all_attacks: [Direction::DIAGONALS, Direction::STRAIGHTS]
-                .concat()
-                .into_iter()
-                .map(|direction| (direction, generate_sliding_attacks(direction)))
-                .collect(),
-        }
-    }
-
     /// Generates a `Vec<Move>` containing all legal moves, given a board state
-    pub fn generate_moves(&self, board: &Board) -> Vec<Move> {
+    pub fn generate_moves(board: &Board) -> Vec<Move> {
         use MoveFlag::*;
         use Piece::*;
 
@@ -81,7 +30,7 @@ impl MoveGenerator {
         let king_board = board.active_piece_board(King);
         let king_square = king_board.get_first_square();
 
-        let king_move_mask = self.get_safe_king_squares(king_square, board);
+        let king_move_mask = Self::get_safe_king_squares(king_square, board);
 
         // other pieces (in the case of check) can either capture a checking piece or block it if it slides
         let (capture_mask, block_mask) = {
@@ -89,15 +38,15 @@ impl MoveGenerator {
 
             // get all attackers of the currently moving king by setting the king to different pieces
             // if the piece can attack an opposing piece of the same type, that means the king is attacked
-            attackers |= self.generate_sliding_attack(king_square, Bishop, board.all_pieces())
+            attackers |= Self::generate_sliding_attack(king_square, Bishop, board.all_pieces())
                 & board.inactive_piece_board(Bishop);
-            attackers |= self.generate_sliding_attack(king_square, Rook, board.all_pieces())
+            attackers |= Self::generate_sliding_attack(king_square, Rook, board.all_pieces())
                 & board.inactive_piece_board(Rook);
-            attackers |= self.generate_sliding_attack(king_square, Queen, board.all_pieces())
+            attackers |= Self::generate_sliding_attack(king_square, Queen, board.all_pieces())
                 & board.inactive_piece_board(Queen);
-            attackers |= self.knight_moves[king_square] & board.inactive_piece_board(Knight);
-            attackers |= self.pawn_attacks[board.active_color()][king_square]
-                & board.inactive_piece_board(Pawn);
+            attackers |= KNIGHT_MOVES[king_square] & board.inactive_piece_board(Knight);
+            attackers |=
+                PAWN_ATTACKS[board.active_color()][king_square] & board.inactive_piece_board(Pawn);
 
             // based on how many pieces attack the king, there are different cases for movable squares
             match attackers.count_bits() {
@@ -110,7 +59,7 @@ impl MoveGenerator {
                     let attacker_piece = board.piece_at(attacker_square).unwrap();
 
                     if attacker_piece.is_sliding() {
-                        self.generate_sliding_attack_at_square(
+                        Self::generate_sliding_attack_at_square(
                             king_square,
                             attacker_square,
                             attacker_piece,
@@ -137,7 +86,7 @@ impl MoveGenerator {
 
             // get a bitboard of all possible pinned friendly pieces by attacking in every direction from king square
             let king_attackable_pieces =
-                self.generate_sliding_attack(king_square, Queen, board.all_pieces())
+                Self::generate_sliding_attack(king_square, Queen, board.all_pieces())
                     & board.active_pieces();
 
             // for each opposing sliding piece, see if it attacks one of the possible pinned friendly pieces
@@ -150,7 +99,7 @@ impl MoveGenerator {
                 }
 
                 // get attackable pieces
-                let opposing_attackable_pieces = self.generate_sliding_attack(
+                let opposing_attackable_pieces = Self::generate_sliding_attack(
                     opposing_square,
                     opposing_piece,
                     board.all_pieces(),
@@ -164,7 +113,7 @@ impl MoveGenerator {
                     let pinned_piece_position = Bitboard::shifted_board(pinned_square);
 
                     // try to get attack ray on the king, skipping through the pinned piece
-                    let attack_through_pin = self.generate_sliding_attack_at_square(
+                    let attack_through_pin = Self::generate_sliding_attack_at_square(
                         king_square,
                         opposing_square,
                         opposing_piece,
@@ -196,17 +145,14 @@ impl MoveGenerator {
             // pawn moves are wacky so generate these separately
             if moving_piece == Pawn {
                 // pawn pushes
-                let single_move = self.pawn_single[board.active_color()][from_square]
-                    & pin_mask
-                    & !board.all_pieces();
+                let single_move =
+                    PAWN_SINGLE[board.active_color()][from_square] & pin_mask & !board.all_pieces();
 
                 // double move is only valid if single move isn't blocked
                 let double_move = if single_move.is_empty() {
                     Bitboard::EMPTY
                 } else {
-                    self.pawn_double[board.active_color()][from_square]
-                        & pin_mask
-                        & !board.all_pieces()
+                    PAWN_DOUBLE[board.active_color()][from_square] & pin_mask & !board.all_pieces()
                 };
 
                 // both single and double pushes can only block checks, not capture attackers
@@ -251,7 +197,7 @@ impl MoveGenerator {
                 }
 
                 // now handle pawn attacks
-                let normal_attacks = self.pawn_attacks[board.active_color()][from_square]
+                let normal_attacks = PAWN_ATTACKS[board.active_color()][from_square]
                     & capture_mask // pawn attack will only count as a capture
                     & pin_mask // and move according to pins
                     & board.inactive_pieces(); // and can only attack opposing pieces
@@ -282,7 +228,7 @@ impl MoveGenerator {
 
                 // finally, handle en passant attacks
                 let en_passant_attack =
-                    self.pawn_attacks[board.active_color()][from_square] & board.en_passant_board();
+                    PAWN_ATTACKS[board.active_color()][from_square] & board.en_passant_board();
 
                 // en passants can have hard-to-find pins
                 // since they are uncommon we can just check if the king is in check after the move
@@ -310,7 +256,7 @@ impl MoveGenerator {
                             let opposing_piece = board.piece_at(opposing_square).unwrap();
 
                             if opposing_piece.is_sliding() {
-                                let attack_on_king = self.generate_sliding_attack_at_square(
+                                let attack_on_king = Self::generate_sliding_attack_at_square(
                                     king_square,
                                     opposing_square,
                                     opposing_piece,
@@ -344,12 +290,12 @@ impl MoveGenerator {
 
             // regular attacking moves
             let attack_moves = match moving_piece {
-                King => self.king_moves[from_square] & king_move_mask,
+                King => KING_MOVES[from_square] & king_move_mask,
 
-                Knight => self.knight_moves[from_square] & (capture_mask | block_mask),
+                Knight => KNIGHT_MOVES[from_square] & (capture_mask | block_mask),
 
                 Bishop | Rook | Queen => {
-                    self.generate_sliding_attack(from_square, moving_piece, board.all_pieces())
+                    Self::generate_sliding_attack(from_square, moving_piece, board.all_pieces())
                         & (capture_mask | block_mask)
                 }
 
@@ -409,7 +355,7 @@ impl MoveGenerator {
     }
 
     /// Determines if in the current board state, the active king is in check
-    pub fn in_check(&self, board: &Board) -> bool {
+    pub fn in_check(board: &Board) -> bool {
         use Piece::*;
 
         let king_position = board.active_piece_board(King);
@@ -420,12 +366,12 @@ impl MoveGenerator {
             let opposing_attacks = match piece {
                 King => Bitboard::EMPTY, // opposing king cannot put our king in check
 
-                Knight => self.knight_moves[square],
+                Knight => KNIGHT_MOVES[square],
 
-                Pawn => self.pawn_attacks[board.inactive_color()][square],
+                Pawn => PAWN_ATTACKS[board.inactive_color()][square],
 
                 Bishop | Rook | Queen => {
-                    self.generate_sliding_attack(square, piece, board.all_pieces())
+                    Self::generate_sliding_attack(square, piece, board.all_pieces())
                 }
             };
 
@@ -438,7 +384,7 @@ impl MoveGenerator {
     }
 
     /// Generates a board of all un-attacked squares that are safe for king to move into, including undefended opposing pieces
-    fn get_safe_king_squares(&self, king_square: Square, board: &Board) -> Bitboard {
+    fn get_safe_king_squares(king_square: Square, board: &Board) -> Bitboard {
         use Piece::*;
         let mut attack_board = Bitboard::EMPTY;
 
@@ -449,16 +395,18 @@ impl MoveGenerator {
             let piece = board.piece_at(square).unwrap();
 
             let current_piece_attack = match piece {
-                King => self.king_moves[square],
-                Knight => self.knight_moves[square],
-                Pawn => self.pawn_attacks[board.inactive_color()][square],
+                King => KING_MOVES[square],
+                Knight => KNIGHT_MOVES[square],
+                Pawn => PAWN_ATTACKS[board.inactive_color()][square],
 
                 // importantly, the king square is not taken into account in the attacked square generation for sliding pieces
                 // if the king is attacked by a sliding piece, it should not be able to move backwards further into the piece's attack range
                 // to fix this, the king square can be omitted and things will work as expected
-                Rook | Bishop | Queen => {
-                    self.generate_sliding_attack(square, piece, board.all_pieces() & !king_position)
-                }
+                Rook | Bishop | Queen => Self::generate_sliding_attack(
+                    square,
+                    piece,
+                    board.all_pieces() & !king_position,
+                ),
             };
 
             attack_board |= current_piece_attack;
@@ -470,18 +418,13 @@ impl MoveGenerator {
     /// Helper function that generates the attacked square bitboard for a given sliding piece and square
     ///
     /// Does not remove the same color pieces being defended, but does clip them properly as expected
-    fn generate_sliding_attack(
-        &self,
-        piece_square: usize,
-        piece: Piece,
-        blockers: Bitboard,
-    ) -> Bitboard {
+    fn generate_sliding_attack(piece_square: usize, piece: Piece, blockers: Bitboard) -> Bitboard {
         let mut moves = Bitboard::EMPTY;
 
         let attacks = match piece {
-            Piece::Bishop => &self.diagonal_attacks,
-            Piece::Rook => &self.straight_attacks,
-            Piece::Queen => &self.all_attacks,
+            Piece::Bishop => &(*BISHOP_MOVES),
+            Piece::Rook => &(*ROOK_MOVES),
+            Piece::Queen => &(*QUEEN_MOVES),
             _ => panic!("Pawn, Knight, or King are not sliding pieces!"),
         };
 
@@ -518,16 +461,15 @@ impl MoveGenerator {
     ///
     /// Returns an empty board if no such attack exists
     fn generate_sliding_attack_at_square(
-        &self,
         target_square: Square,
         attacking_square: Square,
         attacking_piece: Piece,
         blockers: Bitboard,
     ) -> Bitboard {
         let attacks = match attacking_piece {
-            Piece::Bishop => &self.diagonal_attacks,
-            Piece::Rook => &self.straight_attacks,
-            Piece::Queen => &self.all_attacks,
+            Piece::Bishop => &(*BISHOP_MOVES),
+            Piece::Rook => &(*ROOK_MOVES),
+            Piece::Queen => &(*QUEEN_MOVES),
             _ => panic!("Pawn, Knight, or King are not sliding pieces!"),
         };
 
