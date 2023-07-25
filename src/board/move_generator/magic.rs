@@ -1,7 +1,16 @@
-use crate::core::{Bitboard, BOARD_SIZE};
+use crate::{
+    board::move_generator::MoveGenerator,
+    core::{Bitboard, Piece, BOARD_SIZE},
+};
+use lazy_static::lazy_static;
 use rand::random;
 
 use super::direction::{generate_sliding_attacks, Direction};
+
+lazy_static! {
+    pub static ref BISHOP_MAGICS: [Magic; BOARD_SIZE] = Magic::bishop();
+    pub static ref ROOK_MAGICS: [Magic; BOARD_SIZE] = Magic::rook();
+}
 
 pub struct Magic {
     table: Vec<Option<Bitboard>>, // lookup table to store the actual attacks on each square vs each blocker configuration
@@ -13,7 +22,7 @@ pub struct Magic {
 impl Magic {
     pub fn get(&self, blockers: Bitboard) -> Bitboard {
         let masked_blockers = blockers & self.mask;
-        let index = ((masked_blockers * self.number) >> (BOARD_SIZE - self.offset)).0 as usize;
+        let index = Self::calculate_index(masked_blockers, self.number, self.offset);
 
         match self.table[index] {
             Some(attack) => attack,
@@ -33,7 +42,7 @@ impl Magic {
             }
         }
 
-        Self::generate_magics(rook_attacks)
+        Self::generate_magics(Piece::Rook, rook_attacks)
     }
 
     /// Generate bishop magic numbers
@@ -48,11 +57,14 @@ impl Magic {
             }
         }
 
-        Self::generate_magics(bishop_attacks)
+        Self::generate_magics(Piece::Bishop, bishop_attacks)
     }
 
     /// Helper function that does the magic number guess and check process
-    fn generate_magics(attacked_squares: [Bitboard; BOARD_SIZE]) -> [Magic; BOARD_SIZE] {
+    fn generate_magics(
+        piece: Piece,
+        attacked_squares: [Bitboard; BOARD_SIZE],
+    ) -> [Magic; BOARD_SIZE] {
         let mut square = 0;
 
         // generate a magic number for each attack board
@@ -66,14 +78,13 @@ impl Magic {
 
             // storage for the magic number
             let mut magic_number;
-            let mut lookup_table: Vec<Option<Bitboard>>;
 
             'generate: loop {
                 // magic numbers are usually few in 1 bits, so AND a few random numbers together
                 magic_number = Bitboard(random()) & Bitboard(random()) & Bitboard(random());
 
                 // initialize lookup table with enough empty spaces and an enumerator of all blocker permutations
-                lookup_table = vec![None; permutations];
+                let mut occupancy_table = vec![false; permutations];
                 let mut blocker_subset = Bitboard::EMPTY;
 
                 'check: loop {
@@ -82,16 +93,11 @@ impl Magic {
                     blocker_subset = (blocker_subset - attack_board) & attack_board;
 
                     // calculate index and check if a value in the table is already using this index
-                    let index = ((blocker_subset * magic_number) >> (BOARD_SIZE - blocker_count)).0
-                        as usize;
+                    let index = Self::calculate_index(blocker_subset, magic_number, blocker_count);
 
-                    match lookup_table[index] {
-                        // if already taken, this magic number won't work
-                        Some(_) => break 'check,
-
-                        // else, set this spot to taken and continue on
-                        // TODO - actually generate attacks at this spot based on blocker subset
-                        None => lookup_table[index] = Some(blocker_subset),
+                    match occupancy_table[index] {
+                        true => break 'check, // if already taken, this magic number won't work
+                        false => occupancy_table[index] = true, // else, set this spot to taken and continue on
                     }
 
                     // if we have looped back to an empty board, then this magic number works
@@ -105,6 +111,25 @@ impl Magic {
                 "found magic number {} at offset {} for square {}",
                 magic_number.0, blocker_count, square
             );
+
+            // generate lookup table only once a valid magic number was found
+            let mut blocker_subset = Bitboard::EMPTY;
+            let mut lookup_table = vec![None; permutations];
+
+            'map: loop {
+                blocker_subset = (blocker_subset - attack_board) & attack_board;
+                let index = Self::calculate_index(blocker_subset, magic_number, blocker_count);
+
+                lookup_table[index] = Some(MoveGenerator::generate_sliding_attack(
+                    square,
+                    piece,
+                    blocker_subset,
+                ));
+
+                if blocker_subset.is_empty() {
+                    break 'map;
+                }
+            }
 
             square += 1;
 
@@ -120,5 +145,10 @@ impl Magic {
         println!("finished");
 
         magics
+    }
+
+    /// Helper function to do the index calculation for the lookup tables
+    fn calculate_index(blockers: Bitboard, magic: Bitboard, offset: usize) -> usize {
+        ((blockers * magic) >> (BOARD_SIZE - offset)).0 as usize
     }
 }
