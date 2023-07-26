@@ -56,7 +56,7 @@ impl Direction {
 }
 
 /// Generates a lookup table all king moves at each square
-pub fn generate_king_moves() -> [Bitboard; BOARD_SIZE] {
+fn generate_king_moves() -> [Bitboard; BOARD_SIZE] {
     let mut boards = [Bitboard::EMPTY; BOARD_SIZE];
 
     for (square, board) in boards.iter_mut().enumerate() {
@@ -85,7 +85,7 @@ pub fn generate_king_moves() -> [Bitboard; BOARD_SIZE] {
 }
 
 /// Generates a lookup table for knight moves at each square
-pub fn generate_knight_moves() -> [Bitboard; BOARD_SIZE] {
+fn generate_knight_moves() -> [Bitboard; BOARD_SIZE] {
     let mut boards = [Bitboard::EMPTY; BOARD_SIZE];
 
     for (square, board) in boards.iter_mut().enumerate() {
@@ -118,7 +118,7 @@ pub fn generate_knight_moves() -> [Bitboard; BOARD_SIZE] {
 }
 
 /// Generates a lookup table for pawn attacks at each square, indexed by color
-pub fn generate_pawn_attacks() -> [[Bitboard; BOARD_SIZE]; NUM_COLORS] {
+fn generate_pawn_attacks() -> [[Bitboard; BOARD_SIZE]; NUM_COLORS] {
     let mut white_boards = [Bitboard::EMPTY; BOARD_SIZE];
     let mut black_boards = [Bitboard::EMPTY; BOARD_SIZE];
 
@@ -152,7 +152,7 @@ pub fn generate_pawn_attacks() -> [[Bitboard; BOARD_SIZE]; NUM_COLORS] {
 }
 
 /// Generates a lookup table for pawn single moves at each square, indexed by color
-pub fn generate_pawn_single_moves() -> [[Bitboard; BOARD_SIZE]; NUM_COLORS] {
+fn generate_pawn_single_moves() -> [[Bitboard; BOARD_SIZE]; NUM_COLORS] {
     let mut white_boards = [Bitboard::EMPTY; BOARD_SIZE];
     let mut black_boards = [Bitboard::EMPTY; BOARD_SIZE];
 
@@ -181,7 +181,7 @@ pub fn generate_pawn_single_moves() -> [[Bitboard; BOARD_SIZE]; NUM_COLORS] {
 }
 
 /// Generates a lookup table for pawn double moves at each square, indexed by color
-pub fn generate_pawn_double_moves() -> [[Bitboard; BOARD_SIZE]; NUM_COLORS] {
+fn generate_pawn_double_moves() -> [[Bitboard; BOARD_SIZE]; NUM_COLORS] {
     let mut white_boards = [Bitboard::EMPTY; BOARD_SIZE];
     let mut black_boards = [Bitboard::EMPTY; BOARD_SIZE];
 
@@ -210,7 +210,7 @@ pub fn generate_pawn_double_moves() -> [[Bitboard; BOARD_SIZE]; NUM_COLORS] {
 }
 
 /// Generates a lookup table for the attack ray in a given direction (for sliding pieces )
-pub fn generate_sliding_attacks(direction: isize) -> [Bitboard; BOARD_SIZE] {
+fn generate_sliding_attacks(direction: isize) -> [Bitboard; BOARD_SIZE] {
     let mut boards = [Bitboard::EMPTY; BOARD_SIZE];
 
     for (square, board) in boards.iter_mut().enumerate() {

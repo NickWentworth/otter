@@ -5,7 +5,7 @@ use crate::{
 use lazy_static::lazy_static;
 use rand::random;
 
-use super::direction::{generate_sliding_attacks, Direction};
+use super::direction::{BISHOP_MOVES, ROOK_MOVES};
 
 lazy_static! {
     pub static ref BISHOP_MAGICS: [Magic; BOARD_SIZE] = Magic::bishop();
@@ -34,9 +34,8 @@ impl Magic {
     pub fn rook() -> [Magic; BOARD_SIZE] {
         // combine rook attack directions into a single attack bitboard per square
         let mut rook_attacks = [Bitboard::EMPTY; BOARD_SIZE];
-        let attack_directions = Direction::STRAIGHTS.map(|dir| generate_sliding_attacks(dir));
 
-        for attack_ray in attack_directions {
+        for (_, attack_ray) in ROOK_MOVES.iter() {
             for square in 0..BOARD_SIZE {
                 rook_attacks[square] |= attack_ray[square];
             }
@@ -49,9 +48,8 @@ impl Magic {
     pub fn bishop() -> [Magic; BOARD_SIZE] {
         // combine bishop attack directions into a single attack bitboard per square
         let mut bishop_attacks = [Bitboard::EMPTY; BOARD_SIZE];
-        let attack_directions = Direction::DIAGONALS.map(|dir| generate_sliding_attacks(dir));
 
-        for attack_ray in attack_directions {
+        for (_, attack_ray) in BISHOP_MOVES.iter() {
             for square in 0..BOARD_SIZE {
                 bishop_attacks[square] |= attack_ray[square];
             }
