@@ -85,6 +85,15 @@ impl Bitboard {
 
         count
     }
+
+    /// Returns the next subset enumerated from the given set
+    /// 
+    /// Calling this repeatedly from `Bitboard::EMPTY` will eventually enumerate the entire set and return to `Bitboard::EMPTY`
+    /// 
+    /// Bitwise trick found from https://www.chessprogramming.org/Traversing_Subsets_of_a_Set#All_Subsets_of_any_Set
+    pub fn next_subset(self, set: Bitboard) -> Bitboard {
+        (self - set) & set
+    }
 }
 
 /// Basic iterator that returns the squares of each 1 bit in the board

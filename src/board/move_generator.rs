@@ -14,7 +14,7 @@ use direction::{
     BISHOP_MOVES, KING_MOVES, KNIGHT_MOVES, PAWN_ATTACKS, PAWN_DOUBLE, PAWN_SINGLE, QUEEN_MOVES,
     ROOK_MOVES,
 };
-use magic::Magic;
+use magic::{BISHOP_MAGICS, ROOK_MAGICS};
 use masks::{CastleMask, RankPositionMask};
 
 pub struct MoveGenerator;
