@@ -5,6 +5,7 @@ use crate::{
 };
 use std::{io::stdin, thread, time::Duration};
 
+/// Default transposition table size (in MB)
 const TT_SIZE: usize = 512;
 
 /// Maximum search time allowed to limit endless searching
@@ -140,10 +141,12 @@ impl Engine {
                     println!("position fen [FEN]\n\tSetup board from fen string\n");
                     println!("go\n\tSearch for best move from current position\n");
                     println!("display\n\tDisplay current position on the board\n");
-                },
+                }
 
                 // if unable to match a command, do nothing
-                Some(_) | None => println!("Command not recognized, use \"help\" for available commands"),
+                Some(_) | None => {
+                    println!("Command not recognized, use \"help\" for available commands")
+                }
             }
         }
     }

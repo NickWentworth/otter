@@ -1,11 +1,10 @@
+use super::direction::{BISHOP_MOVES, ROOK_MOVES};
 use crate::{
     board::move_generator::MoveGenerator,
     core::{Bitboard, Piece, BOARD_SIZE},
 };
 use lazy_static::lazy_static;
 use rand::random;
-
-use super::direction::{BISHOP_MOVES, ROOK_MOVES};
 
 lazy_static! {
     pub static ref BISHOP_MAGICS: [Magic; BOARD_SIZE] = Magic::bishop();

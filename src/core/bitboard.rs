@@ -1,3 +1,4 @@
+use super::Square;
 use std::{
     fmt::Display,
     ops::{
@@ -5,8 +6,6 @@ use std::{
         Shr, ShrAssign, Sub,
     },
 };
-
-use super::Square;
 
 pub const BOARD_SIZE: usize = 64;
 
@@ -87,9 +86,9 @@ impl Bitboard {
     }
 
     /// Returns the next subset enumerated from the given set
-    /// 
+    ///
     /// Calling this repeatedly from `Bitboard::EMPTY` will eventually enumerate the entire set and return to `Bitboard::EMPTY`
-    /// 
+    ///
     /// Bitwise trick found from https://www.chessprogramming.org/Traversing_Subsets_of_a_Set#All_Subsets_of_any_Set
     pub fn next_subset(self, set: Bitboard) -> Bitboard {
         (self - set) & set

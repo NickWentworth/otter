@@ -1,10 +1,9 @@
+use super::{evaluate::evaluate, ordering::order_moves, tt::TranspositionTable, Score};
 use crate::board::{Board, Move};
 use std::{
     fmt::Display,
     sync::{Arc, Mutex},
 };
-
-use super::{evaluate::evaluate, ordering::order_moves, tt::TranspositionTable, Score};
 
 // Scores pertaining to different constant cases
 const INFINITY: Score = 30000;

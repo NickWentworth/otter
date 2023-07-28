@@ -1,6 +1,5 @@
-use crate::board::Board;
-
 use super::{pst::piece_square_table, Score};
+use crate::board::Board;
 
 /// Evaluate the board position and assign a value representing the active side's advantage
 pub fn evaluate(board: &Board) -> Score {

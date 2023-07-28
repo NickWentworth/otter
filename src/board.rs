@@ -2,7 +2,7 @@ use crate::core::{
     Bitboard, Color, Piece, Square, ALGEBRAIC_NOTATION, ALL_PIECES, BOARD_SIZE, NUM_COLORS,
     NUM_PIECES,
 };
-use std::{fmt::Display, rc::Rc};
+use std::fmt::Display;
 
 mod castling;
 mod fen;

@@ -1,9 +1,7 @@
+use super::castling::{CastleSide, NUM_CASTLE_SIDES};
+use crate::core::{Color, Piece, Square, BOARD_SIZE, NUM_COLORS, NUM_PIECES};
 use lazy_static::lazy_static;
 use rand::Rng;
-
-use crate::core::{Color, Piece, Square, BOARD_SIZE, NUM_COLORS, NUM_PIECES};
-
-use super::castling::{CastleSide, NUM_CASTLE_SIDES};
 
 lazy_static! {
     /// Static reference to zobrist values for board hashing

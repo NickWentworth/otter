@@ -1,6 +1,5 @@
-use crate::core::{Color, Piece, BOARD_SIZE, Square};
-
 use super::Score;
+use crate::core::{Color, Piece, BOARD_SIZE, Square};
 
 type PieceSquareTable = [Score; BOARD_SIZE];
 

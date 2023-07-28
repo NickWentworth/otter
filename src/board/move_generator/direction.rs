@@ -1,7 +1,6 @@
+use super::masks::{FileBoundMask, RankPositionMask};
 use crate::core::{Bitboard, Color, BOARD_SIZE, NUM_COLORS};
 use lazy_static::lazy_static;
-
-use super::masks::{FileBoundMask, RankPositionMask};
 
 pub type LookupTable = [Bitboard; BOARD_SIZE]; // mapping of each square to a bitboard
 pub type DirectionTablePair = (isize, LookupTable); // pair of a direction and the lookup table generated from it
