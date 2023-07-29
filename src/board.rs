@@ -10,7 +10,7 @@ mod move_generator;
 mod zobrist;
 
 pub use fen::DEFAULT_FEN;
-pub use move_generator::{Move, MoveFlag};
+pub use move_generator::{Magic, Move, MoveFlag};
 pub use zobrist::ZobristHash;
 
 use castling::{CastleRights, CastleSide};

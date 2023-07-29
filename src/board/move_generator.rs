@@ -9,6 +9,7 @@ mod masks;
 mod moves;
 
 pub use moves::{Move, MoveFlag};
+pub use magic::Magic;
 
 use direction::{
     BISHOP_MOVES, KING_MOVES, KNIGHT_MOVES, PAWN_ATTACKS, PAWN_DOUBLE, PAWN_SINGLE, QUEEN_MOVES,
@@ -294,9 +295,15 @@ impl MoveGenerator {
 
                 Knight => KNIGHT_MOVES[from_square] & (capture_mask | block_mask),
 
-                Bishop | Rook | Queen => {
-                    Self::generate_sliding_attack(from_square, moving_piece, board.all_pieces())
-                        & (capture_mask | block_mask)
+                Bishop => BISHOP_MAGICS[from_square].get(board.all_pieces()) & (capture_mask | block_mask),
+                
+                Rook => ROOK_MAGICS[from_square].get(board.all_pieces()) & (capture_mask | block_mask),
+                
+                Queen => {
+                    (
+                        BISHOP_MAGICS[from_square].get(board.all_pieces())
+                        | ROOK_MAGICS[from_square].get(board.all_pieces())
+                    ) & (capture_mask | block_mask)
                 }
 
                 // easier to handle pawns elsewhere

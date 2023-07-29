@@ -1,5 +1,5 @@
 use crate::{
-    board::{Board, DEFAULT_FEN},
+    board::{Board, Magic, DEFAULT_FEN},
     core::{Color, NUM_COLORS},
     search::Searcher,
 };
@@ -134,6 +134,9 @@ impl Engine {
 
                 // display transposition table statistics
                 Some("stats") => println!("{}", self.searcher),
+
+                // generate a new set of magic numbers
+                Some("generate") => Magic::generate_magics(),
 
                 // display common commands
                 Some("help") => {

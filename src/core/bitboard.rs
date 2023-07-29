@@ -1,6 +1,6 @@
 use super::Square;
 use std::{
-    fmt::Display,
+    fmt::{Debug, Display},
     ops::{
         BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Mul, Not, Shl, ShlAssign,
         Shr, ShrAssign, Sub,
@@ -132,6 +132,13 @@ impl Display for Bitboard {
         }
 
         write!(f, "{}", s)
+    }
+}
+
+impl Debug for Bitboard {
+    /// Print out the underlying integer value
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.0)
     }
 }
 
