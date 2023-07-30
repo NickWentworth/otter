@@ -39,15 +39,15 @@ impl MoveGenerator {
 
             // get all attackers of the currently moving king by setting the king to different pieces
             // if the piece can attack an opposing piece of the same type, that means the king is attacked
-            attackers |= Self::generate_sliding_attack(king_square, Bishop, board.all_pieces())
-                & board.inactive_piece_board(Bishop);
-            attackers |= Self::generate_sliding_attack(king_square, Rook, board.all_pieces())
-                & board.inactive_piece_board(Rook);
-            attackers |= Self::generate_sliding_attack(king_square, Queen, board.all_pieces())
-                & board.inactive_piece_board(Queen);
+            attackers |= BISHOP_MAGICS[king_square].get(board.all_pieces())
+                & (board.inactive_piece_board(Bishop) | board.inactive_piece_board(Queen));
+
+            attackers |= ROOK_MAGICS[king_square].get(board.all_pieces())
+                & (board.inactive_piece_board(Rook) | board.inactive_piece_board(Queen));
+
             attackers |= KNIGHT_MOVES[king_square] & board.inactive_piece_board(Knight);
-            attackers |=
-                PAWN_ATTACKS[board.active_color()][king_square] & board.inactive_piece_board(Pawn);
+
+            attackers |= PAWN_ATTACKS[board.active_color()][king_square] & board.inactive_piece_board(Pawn);
 
             // based on how many pieces attack the king, there are different cases for movable squares
             match attackers.count_bits() {
@@ -86,9 +86,10 @@ impl MoveGenerator {
             let mut masks = [Bitboard::FULL; BOARD_SIZE];
 
             // get a bitboard of all possible pinned friendly pieces by attacking in every direction from king square
-            let king_attackable_pieces =
-                Self::generate_sliding_attack(king_square, Queen, board.all_pieces())
-                    & board.active_pieces();
+            let king_attackable_pieces = (
+                BISHOP_MAGICS[king_square].get(board.all_pieces())
+                | ROOK_MAGICS[king_square].get(board.all_pieces())
+            ) & board.active_pieces();
 
             // for each opposing sliding piece, see if it attacks one of the possible pinned friendly pieces
             for opposing_square in board.inactive_pieces() {
@@ -100,11 +101,15 @@ impl MoveGenerator {
                 }
 
                 // get attackable pieces
-                let opposing_attackable_pieces = Self::generate_sliding_attack(
-                    opposing_square,
-                    opposing_piece,
-                    board.all_pieces(),
-                ) & board.active_pieces();
+                let opposing_attackable_pieces = match opposing_piece {
+                    Bishop => BISHOP_MAGICS[opposing_square].get(board.all_pieces()),
+                    Rook => ROOK_MAGICS[opposing_square].get(board.all_pieces()),
+                    Queen => {
+                        BISHOP_MAGICS[opposing_square].get(board.all_pieces())
+                        | ROOK_MAGICS[opposing_square].get(board.all_pieces())
+                    }
+                    _ => unreachable!(), // should only be sliding pieces at this point
+                } & board.active_pieces();
 
                 // and get any possible pinned pieces from this attacking opposing piece
                 let possible_pins = opposing_attackable_pieces & king_attackable_pieces;
@@ -377,8 +382,13 @@ impl MoveGenerator {
 
                 Pawn => PAWN_ATTACKS[board.inactive_color()][square],
 
-                Bishop | Rook | Queen => {
-                    Self::generate_sliding_attack(square, piece, board.all_pieces())
+                Bishop => BISHOP_MAGICS[square].get(board.all_pieces()),
+                
+                Rook => ROOK_MAGICS[square].get(board.all_pieces()),
+
+                Queen => {
+                    BISHOP_MAGICS[square].get(board.all_pieces())
+                    | ROOK_MAGICS[square].get(board.all_pieces())
                 }
             };
 
@@ -409,11 +419,12 @@ impl MoveGenerator {
                 // importantly, the king square is not taken into account in the attacked square generation for sliding pieces
                 // if the king is attacked by a sliding piece, it should not be able to move backwards further into the piece's attack range
                 // to fix this, the king square can be omitted and things will work as expected
-                Rook | Bishop | Queen => Self::generate_sliding_attack(
-                    square,
-                    piece,
-                    board.all_pieces() & !king_position,
-                ),
+                Bishop => BISHOP_MAGICS[square].get(board.all_pieces() & !king_position),
+                Rook => ROOK_MAGICS[square].get(board.all_pieces() & !king_position),
+                Queen => {
+                    let blockers = board.all_pieces() & !king_position;
+                    BISHOP_MAGICS[square].get(blockers) | ROOK_MAGICS[square].get(blockers)
+                }
             };
 
             attack_board |= current_piece_attack;
