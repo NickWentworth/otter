@@ -23,8 +23,10 @@ Otter can also be run without a GUI to evaluate positions or search for best mov
 ## Features
 
 #### Currently Implemented
-- Bitboard board representation
-- Pre-computed move lookup tables, including attack rays for sliding pieces
+- Board & Move Generation
+    - Bitboard board representation
+    - Pre-computed move lookup tables for non-sliding pieces
+    - Magic bitboard move lookup tables for sliding pieces
 - Search
     - Iterative deepening approach using the alpha-beta searching algorithm
     - Quiescence search
@@ -34,7 +36,6 @@ Otter can also be run without a GUI to evaluate positions or search for best mov
     - Move generation is tested using a perft function on various complicated positions
 
 #### Todo's
-- Magic bitboard move lookup tables
 - Openings database to allow more variation in the early-game
 - Stronger evaluation that considers ideas such as pawn structure and king safety
 - Pondering to search best responses while opponent is making moves
