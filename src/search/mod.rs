@@ -4,7 +4,7 @@ mod ordering;
 mod pst;
 mod tt;
 
-pub use alpha_beta::{Searcher, SearchTT};
+pub use alpha_beta::{SearchTT, Searcher};
 
 /// Represents the score of the board, where a positive number implies moving side is ahead
 pub type Score = i16;

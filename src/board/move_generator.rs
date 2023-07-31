@@ -8,8 +8,8 @@ mod magic;
 mod masks;
 mod moves;
 
-pub use moves::{Move, MoveFlag};
 pub use magic::Magic;
+pub use moves::{Move, MoveFlag};
 
 use direction::{
     BISHOP_RAYS, KING_MOVES, KNIGHT_MOVES, PAWN_ATTACKS, PAWN_DOUBLE, PAWN_SINGLE, QUEEN_RAYS,
@@ -47,7 +47,8 @@ impl MoveGenerator {
 
             attackers |= KNIGHT_MOVES[king_square] & board.inactive_piece_board(Knight);
 
-            attackers |= PAWN_ATTACKS[board.active_color()][king_square] & board.inactive_piece_board(Pawn);
+            attackers |=
+                PAWN_ATTACKS[board.active_color()][king_square] & board.inactive_piece_board(Pawn);
 
             // based on how many pieces attack the king, there are different cases for movable squares
             match attackers.count_bits() {
@@ -86,10 +87,9 @@ impl MoveGenerator {
             let mut masks = [Bitboard::FULL; BOARD_SIZE];
 
             // get a bitboard of all possible pinned friendly pieces by attacking in every direction from king square
-            let king_attackable_pieces = (
-                BISHOP_MAGICS[king_square].get(board.all_pieces())
-                | ROOK_MAGICS[king_square].get(board.all_pieces())
-            ) & board.active_pieces();
+            let king_attackable_pieces = (BISHOP_MAGICS[king_square].get(board.all_pieces())
+                | ROOK_MAGICS[king_square].get(board.all_pieces()))
+                & board.active_pieces();
 
             // for each opposing sliding piece, see if it attacks one of the possible pinned friendly pieces
             for opposing_square in board.inactive_pieces() {
@@ -106,7 +106,7 @@ impl MoveGenerator {
                     Rook => ROOK_MAGICS[opposing_square].get(board.all_pieces()),
                     Queen => {
                         BISHOP_MAGICS[opposing_square].get(board.all_pieces())
-                        | ROOK_MAGICS[opposing_square].get(board.all_pieces())
+                            | ROOK_MAGICS[opposing_square].get(board.all_pieces())
                     }
                     _ => unreachable!(), // should only be sliding pieces at this point
                 } & board.active_pieces();
@@ -301,9 +301,9 @@ impl MoveGenerator {
                 Knight => KNIGHT_MOVES[from_square] & (capture_mask | block_mask),
 
                 Bishop => BISHOP_MAGICS[from_square].get(board.all_pieces()) & (capture_mask | block_mask),
-                
+
                 Rook => ROOK_MAGICS[from_square].get(board.all_pieces()) & (capture_mask | block_mask),
-                
+
                 Queen => {
                     (
                         BISHOP_MAGICS[from_square].get(board.all_pieces())
@@ -383,12 +383,12 @@ impl MoveGenerator {
                 Pawn => PAWN_ATTACKS[board.inactive_color()][square],
 
                 Bishop => BISHOP_MAGICS[square].get(board.all_pieces()),
-                
+
                 Rook => ROOK_MAGICS[square].get(board.all_pieces()),
 
                 Queen => {
                     BISHOP_MAGICS[square].get(board.all_pieces())
-                    | ROOK_MAGICS[square].get(board.all_pieces())
+                        | ROOK_MAGICS[square].get(board.all_pieces())
                 }
             };
 
