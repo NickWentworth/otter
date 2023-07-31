@@ -1,4 +1,4 @@
-use super::direction::{BISHOP_MOVES, ROOK_MOVES};
+use super::direction::{BISHOP_RAYS, ROOK_RAYS};
 use crate::{
     board::move_generator::MoveGenerator,
     core::{Bitboard, Piece, Square, BOARD_SIZE},
@@ -167,7 +167,7 @@ impl Magic {
     fn fold_bishop_attacks() -> [Bitboard; BOARD_SIZE] {
         let mut bishop_attacks = [Bitboard::EMPTY; BOARD_SIZE];
 
-        for (_, attack_ray) in BISHOP_MOVES.iter() {
+        for (_, attack_ray) in BISHOP_RAYS.iter() {
             for square in 0..BOARD_SIZE {
                 bishop_attacks[square] |= attack_ray[square];
             }
@@ -180,7 +180,7 @@ impl Magic {
     fn fold_rook_attacks() -> [Bitboard; BOARD_SIZE] {
         let mut rook_attacks = [Bitboard::EMPTY; BOARD_SIZE];
 
-        for (_, attack_ray) in ROOK_MOVES.iter() {
+        for (_, attack_ray) in ROOK_RAYS.iter() {
             for square in 0..BOARD_SIZE {
                 rook_attacks[square] |= attack_ray[square];
             }

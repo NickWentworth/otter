@@ -12,8 +12,8 @@ pub use moves::{Move, MoveFlag};
 pub use magic::Magic;
 
 use direction::{
-    BISHOP_MOVES, KING_MOVES, KNIGHT_MOVES, PAWN_ATTACKS, PAWN_DOUBLE, PAWN_SINGLE, QUEEN_MOVES,
-    ROOK_MOVES,
+    BISHOP_RAYS, KING_MOVES, KNIGHT_MOVES, PAWN_ATTACKS, PAWN_DOUBLE, PAWN_SINGLE, QUEEN_RAYS,
+    ROOK_RAYS,
 };
 use magic::{BISHOP_MAGICS, ROOK_MAGICS};
 use masks::{CastleMask, RankPositionMask};
@@ -440,9 +440,9 @@ impl MoveGenerator {
         let mut moves = Bitboard::EMPTY;
 
         let attacks = match piece {
-            Piece::Bishop => &(*BISHOP_MOVES),
-            Piece::Rook => &(*ROOK_MOVES),
-            Piece::Queen => &(*QUEEN_MOVES),
+            Piece::Bishop => &*BISHOP_RAYS,
+            Piece::Rook => &*ROOK_RAYS,
+            Piece::Queen => &*QUEEN_RAYS,
             _ => panic!("Pawn, Knight, or King are not sliding pieces!"),
         };
 
@@ -485,9 +485,9 @@ impl MoveGenerator {
         blockers: Bitboard,
     ) -> Bitboard {
         let attacks = match attacking_piece {
-            Piece::Bishop => &(*BISHOP_MOVES),
-            Piece::Rook => &(*ROOK_MOVES),
-            Piece::Queen => &(*QUEEN_MOVES),
+            Piece::Bishop => &*BISHOP_RAYS,
+            Piece::Rook => &*ROOK_RAYS,
+            Piece::Queen => &*QUEEN_RAYS,
             _ => panic!("Pawn, Knight, or King are not sliding pieces!"),
         };
 
