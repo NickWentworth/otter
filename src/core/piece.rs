@@ -34,24 +34,49 @@ impl Piece {
             King => 0, // both sides always have a king, so its value isn't needed
         }
     }
+}
 
-    /// Converts a piece to its commonly used symbol
-    pub fn symbol(self) -> char {
+impl From<char> for Piece {
+    /// Converts an ascii character to a piece
+    fn from(value: char) -> Self {
         use Piece::*;
 
-        match self {
-            Pawn => 'p',
-            Knight => 'n',
-            Bishop => 'b',
-            Rook => 'r',
-            Queen => 'q',
-            King => 'k',
+        match value.to_ascii_uppercase() {
+            'P' => Pawn,
+            'N' => Knight,
+            'B' => Bishop,
+            'R' => Rook,
+            'Q' => Queen,
+            'K' => King,
+            _ => panic!("{} is not a valid piece letter!", value),
+        }
+    }
+}
+
+impl From<Piece> for char {
+    /// Converts a piece to an uppercase ascii character
+    fn from(value: Piece) -> Self {
+        use Piece::*;
+
+        match value {
+            Pawn => 'P',
+            Knight => 'N',
+            Bishop => 'B',
+            Rook => 'R',
+            Queen => 'Q',
+            King => 'K',
         }
     }
 }
 
 pub const NUM_PIECES: usize = 6;
 
-use Piece::*;
-pub const ALL_PIECES: [Piece; NUM_PIECES] = [Pawn, Knight, Bishop, Rook, Queen, King];
-pub const PROMOTION_PIECES: [Piece; 4] = [Knight, Bishop, Rook, Queen];
+pub const ALL_PIECES: [Piece; NUM_PIECES] = {
+    use Piece::*;
+    [Pawn, Knight, Bishop, Rook, Queen, King]
+};
+
+pub const PROMOTION_PIECES: [Piece; 4] = {
+    use Piece::*;
+    [Knight, Bishop, Rook, Queen]
+};

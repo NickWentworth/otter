@@ -35,13 +35,15 @@ impl Move {
 
 impl Display for Move {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use MoveFlag::*;
+
         write!(
             f,
             "{}{}{}",
             ALGEBRAIC_NOTATION[self.from],
             ALGEBRAIC_NOTATION[self.to],
             match self.flag {
-                MoveFlag::Promotion(p) | MoveFlag::CapturePromotion(_, p) => p.symbol().to_string(),
+                Promotion(p) | CapturePromotion(_, p) => char::from(p).to_ascii_lowercase().to_string(),
                 _ => "".to_string(),
             }
         )

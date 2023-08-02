@@ -62,12 +62,12 @@ impl Board {
         .collect();
 
         // build the bitboards for the struct
-        let mut pieces: [Bitboard; NUM_PIECES] = [Bitboard::EMPTY; NUM_PIECES];
-        let mut colors: [Bitboard; NUM_COLORS] = [Bitboard::EMPTY; NUM_COLORS];
+        let mut pieces = [Bitboard::EMPTY; NUM_PIECES];
+        let mut colors = [Bitboard::EMPTY; NUM_COLORS];
 
         // index bitboard to be AND-ed with piece/color bitboards, bitwise looks like 1000...0000
         // instead of being incremented, this is right-shifted to move the 1 over
-        let mut index: Bitboard = Bitboard::MSB;
+        let mut index = Bitboard::MSB;
 
         for symbol in fen_parts[0].chars() {
             match symbol {
@@ -82,23 +82,9 @@ impl Board {
 
                 // else, try to parse character as a piece
                 c => {
-                    // change color bitboards based on case
-                    if c.is_ascii_uppercase() {
-                        colors[Color::White] |= index;
-                    } else {
-                        colors[Color::Black] |= index;
-                    }
-
-                    // change piece bitboards based on letter
-                    match c {
-                        'P' | 'p' => pieces[Piece::Pawn] |= index,
-                        'N' | 'n' => pieces[Piece::Knight] |= index,
-                        'B' | 'b' => pieces[Piece::Bishop] |= index,
-                        'R' | 'r' => pieces[Piece::Rook] |= index,
-                        'Q' | 'q' => pieces[Piece::Queen] |= index,
-                        'K' | 'k' => pieces[Piece::King] |= index,
-                        _ => panic!("invalid symbol in fen string"),
-                    }
+                    // change bitboards based on casing and character
+                    colors[Color::from(c)] |= index;
+                    pieces[Piece::from(c)] |= index;
 
                     // finally increment index
                     index >>= 1 as Square;
@@ -148,7 +134,6 @@ impl Board {
     /// Returns a FEN string representing the current board position
     pub fn to_fen(&self) -> String {
         use Color::*;
-        use Piece::*;
 
         let mut fen = String::new();
 
@@ -156,18 +141,17 @@ impl Board {
             // get the symbol of this square
             let symbol = match piece {
                 None => '1',
-                Some(Pawn) => 'P',
-                Some(Knight) => 'N',
-                Some(Bishop) => 'B',
-                Some(Rook) => 'R',
-                Some(Queen) => 'Q',
-                Some(King) => 'K',
+                Some(p) => char::from(*p),
             };
 
-            // add proper casing
-            match self.colors[White].bit_at(square) {
-                true => fen.push(symbol),
-                false => fen.push(symbol.to_ascii_lowercase()),
+            // add proper casing if needed
+            if self.colors[White].bit_at(square) {
+                fen.push(White.to_char(symbol));
+            } else if self.colors[Black].bit_at(square) {
+                fen.push(Black.to_char(symbol));
+            } else {
+                // if not in either colors bitboard, just push the regular symbol
+                fen.push(symbol);
             }
 
             // if we are moving to the next rank, then add a slash
