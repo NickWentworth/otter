@@ -1,5 +1,5 @@
 use crate::{
-    board::{Board, Magic, DEFAULT_FEN},
+    board::{Board, Magic},
     core::{Color, NUM_COLORS},
     search::Searcher,
 };
@@ -23,7 +23,7 @@ impl Engine {
     /// Generates a new engine, initializing a board and transposition table
     pub fn new() -> Engine {
         Engine {
-            board: Board::new(DEFAULT_FEN),
+            board: Board::default(),
             searcher: Searcher::new(TT_SIZE),
             time: [Duration::MAX; 2], // start out with no time limit
         }
@@ -70,7 +70,7 @@ impl Engine {
                         tokens.next();
 
                         // set board to starting position
-                        self.board = Board::new(DEFAULT_FEN);
+                        self.board = Board::default();
 
                         while let Some(move_string) = tokens.next() {
                             // try to find this move string from all current legal move strings

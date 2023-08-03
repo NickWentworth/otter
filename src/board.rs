@@ -9,12 +9,11 @@ mod fen;
 mod move_generator;
 mod zobrist;
 
-pub use fen::DEFAULT_FEN;
 pub use move_generator::{Magic, Move, MoveFlag};
 pub use zobrist::ZobristHash;
 
 use castling::{CastleRights, CastleSide};
-use fen::check_valid_fen;
+use fen::{check_valid_fen, DEFAULT_FEN};
 use move_generator::MoveGenerator;
 use zobrist::ZOBRIST;
 
@@ -116,7 +115,7 @@ impl Board {
         // other systems expect board to be in a valid state, so check if it is valid
         if !b.is_legal_position() {
             println!("Invalid FEN! Reverting to starting position.");
-            b = Board::new(DEFAULT_FEN);
+            b = Board::default();
         }
 
         b
@@ -606,6 +605,13 @@ impl Board {
         }
 
         true
+    }
+}
+
+impl Default for Board {
+    /// Setup a board from the starting position
+    fn default() -> Self {
+        Board::new(DEFAULT_FEN)
     }
 }
 
