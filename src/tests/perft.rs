@@ -78,7 +78,7 @@ mod tests {
     #[test]
     fn test_perft() {
         for (fen, depth, expected) in TEST_CASES {
-            let mut b = Board::new(fen.to_string());
+            let mut b = Board::new(fen);
 
             assert_eq!(
                 perft(&mut b, depth),

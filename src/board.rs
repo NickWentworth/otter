@@ -48,18 +48,18 @@ impl Board {
     /// Generates a new `Board` from a given FEN string
     ///
     /// The FEN string is validated, if invalid the board is set to the start state of the chess game
-    pub fn new(fen: String) -> Board {
+    pub fn new(fen: &str) -> Board {
         // check if the given string is valid
-        let fen_parts: Vec<String> = if check_valid_fen(&fen) {
+        let fen_parts = if check_valid_fen(fen) {
             fen
         } else {
-            // if not, just use the default fen string for now
+            // if not, just use the default fen string
             println!("Invalid FEN! Reverting to starting position.");
-            DEFAULT_FEN.to_string()
+            DEFAULT_FEN
         }
         .split(" ")
         .map(|s| s.to_string())
-        .collect();
+        .collect::<Vec<_>>();
 
         // build the bitboards for the struct
         let mut pieces = [Bitboard::EMPTY; NUM_PIECES];
@@ -116,7 +116,7 @@ impl Board {
         // other systems expect board to be in a valid state, so check if it is valid
         if !b.is_legal_position() {
             println!("Invalid FEN! Reverting to starting position.");
-            b = Board::new(DEFAULT_FEN.to_string());
+            b = Board::new(DEFAULT_FEN);
         }
 
         b

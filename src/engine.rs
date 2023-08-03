@@ -23,7 +23,7 @@ impl Engine {
     /// Generates a new engine, initializing a board and transposition table
     pub fn new() -> Engine {
         Engine {
-            board: Board::new(DEFAULT_FEN.to_string()),
+            board: Board::new(DEFAULT_FEN),
             searcher: Searcher::new(TT_SIZE),
             time: [Duration::MAX; 2], // start out with no time limit
         }
@@ -61,7 +61,7 @@ impl Engine {
                     Some("fen") => {
                         // join remaining tokens into the fen string
                         let fen = tokens.collect::<Vec<_>>().join(" ");
-                        self.board = Board::new(fen);
+                        self.board = Board::new(&fen);
                     }
 
                     // list of moves made from starting position
@@ -70,7 +70,7 @@ impl Engine {
                         tokens.next();
 
                         // set board to starting position
-                        self.board = Board::new(DEFAULT_FEN.to_string());
+                        self.board = Board::new(DEFAULT_FEN);
 
                         while let Some(move_string) = tokens.next() {
                             // try to find this move string from all current legal move strings

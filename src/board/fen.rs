@@ -8,7 +8,7 @@ const FEN_REGEX: &str = r"^((P|N|B|R|Q|K|p|n|b|r|q|k|1){8}/){7}(P|N|B|R|Q|K|p|n|
 /// Checks that fen is mostly legal (is in the correct format)
 ///
 /// Certain cases such as a board full of kings would also pass, but this is a starting point
-pub fn check_valid_fen(fen: &String) -> bool {
+pub fn check_valid_fen(fen: &str) -> bool {
     let regex = regex::Regex::new(FEN_REGEX);
 
     // to make regex matching more exact, replace all occurrences of a digit with that number of 1's within piece data segment
@@ -22,7 +22,7 @@ pub fn check_valid_fen(fen: &String) -> bool {
 
     // now rebuild the expanded fen with the updated piece data
     // operation cannot be done on entire fen because numbers can occur elsewhere and shouldn't be expanded
-    let mut expanded_fen = fen.clone();
+    let mut expanded_fen = fen.to_string();
     expanded_fen.replace_range(0..first_space, &piece_data);
 
     match regex {

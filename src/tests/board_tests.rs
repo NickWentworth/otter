@@ -14,7 +14,7 @@ mod tests {
     #[test]
     fn test_board_to_fen() {
         for fen in TEST_FENS {
-            let b = Board::new(fen.to_string());
+            let b = Board::new(fen);
             assert_eq!(b.to_fen(), fen.to_string());
         }
     }
@@ -24,8 +24,8 @@ mod tests {
         let default_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
         // check initial hash is the same
-        let mut b1 = Board::new(default_fen.to_string());
-        let mut b2 = Board::new(default_fen.to_string());
+        let mut b1 = Board::new(default_fen);
+        let mut b2 = Board::new(default_fen);
 
         assert_eq!(b1.zobrist(), b2.zobrist());
 
