@@ -1,6 +1,6 @@
 use crate::core::{
     Bitboard, Color, Piece, Square, ALGEBRAIC_NOTATION, ALL_PIECES, BOARD_SIZE, NUM_COLORS,
-    NUM_PIECES,
+    NUM_PIECES, PROMOTION_PIECES,
 };
 use std::fmt::Display;
 
@@ -54,7 +54,7 @@ impl Board {
             fen
         } else {
             // if not, just use the default fen string for now
-            println!("Invalid FEN! Reverting to starting board state.");
+            println!("Invalid FEN! Reverting to starting position.");
             DEFAULT_FEN.to_string()
         }
         .split(" ")
@@ -113,19 +113,10 @@ impl Board {
 
         b.piece_list = b.build_piece_list();
 
-        // other systems expect board to be in a valid state
-        // for example the current moving side cannot have the opposing king in check
-        // TODO - expand upon fen validation to check for this
-        use MoveFlag::*;
-        let captures = b.generate_captures();
-        for capture in captures {
-            // ensure a king is not being captured right now
-            match capture.flag {
-                Capture(Piece::King) | CapturePromotion(Piece::King, _) => {
-                    panic!("This is not a valid fen! The king is able to be captured!")
-                }
-                _ => (),
-            }
+        // other systems expect board to be in a valid state, so check if it is valid
+        if !b.is_legal_position() {
+            println!("Invalid FEN! Reverting to starting position.");
+            b = Board::new(DEFAULT_FEN.to_string());
         }
 
         b
@@ -555,6 +546,66 @@ impl Board {
         hash ^= ZOBRIST.en_passant(self.game_state.en_passant_square);
 
         hash
+    }
+
+    /// Checks if the current board position is in a legal state
+    fn is_legal_position(&self) -> bool {
+        use Color::*;
+        use MoveFlag::*;
+        use Piece::*;
+
+        // check for correct piece counts per color
+        for color in [White, Black] {
+            let mut pieces = [0; NUM_PIECES];
+
+            // count up pieces
+            for square in self.colors[color] {
+                // should be a piece at this square
+                let piece = self.piece_list[square].unwrap();
+                pieces[piece] += 1;
+            }
+
+            // now check that counts are valid
+            // correct amount of un-promotable pieces
+            if pieces[King] != King.initial_count() {
+                return false;
+            }
+            if pieces[Pawn] > Pawn.initial_count() {
+                return false;
+            }
+
+            // possible to have promoted pawns to get to this position
+            let mut missing_pawns = Pawn.initial_count() - pieces[Pawn];
+            for promotable in PROMOTION_PIECES {
+                // if there are less than or equal to the initial count of this piece,
+                // then it isn't guaranteed that a pawn was promoted
+                if pieces[promotable] <= promotable.initial_count() {
+                    continue;
+                }
+
+                // get the number of pieces that must have been promoted for this piece type
+                let promoted_pieces = pieces[promotable] - promotable.initial_count();
+
+                // not enough missing pawns to have promoted this many pieces
+                if promoted_pieces > missing_pawns {
+                    return false;
+                }
+
+                // else, subtract the promoted pieces from missing pawns
+                missing_pawns -= promoted_pieces;
+            }
+        }
+
+        // the current moving side cannot have the opposing king in check
+        for capture in self.generate_captures() {
+            // ensure a king is not being captured right now
+            match capture.flag {
+                Capture(King) | CapturePromotion(King, _) => return false,
+                _ => (),
+            }
+        }
+
+        true
     }
 }
 

@@ -21,6 +21,17 @@ impl Piece {
         }
     }
 
+    /// Returns the number of occurrences of this piece at the starting board position
+    pub fn initial_count(self) -> u8 {
+        use Piece::*;
+
+        match self {
+            Pawn => 8,
+            Knight | Bishop | Rook => 2,
+            Queen | King => 1,
+        }
+    }
+
     /// Converts a piece to a relative material value
     pub fn material_value(self) -> Score {
         use Piece::*;

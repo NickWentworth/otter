@@ -36,6 +36,9 @@ macro_rules! index_traits {
 index_traits!(Piece, Bitboard);
 index_traits!(Color, Bitboard);
 
+// piece counting arrays within Board struct's legality checker
+index_traits!(Piece, u8);
+
 // castling rights within Board struct
 index_traits!(Color, bool);
 
