@@ -30,3 +30,34 @@ pub fn check_valid_fen(fen: &str) -> bool {
         Ok(valid_regex) => valid_regex.is_match(&expanded_fen),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{check_valid_fen as check, *};
+
+    #[test]
+    fn test_valid_fens() {
+        // all valid fen strings from various points of a game
+        assert!(check(DEFAULT_FEN));
+        assert!(check("rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3 0 1"));
+        assert!(check("rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq d6 0 2"));
+        assert!(check("r2q1rk1/ppp2ppp/2b1pn2/3pN3/3P4/2P1P1P1/PP3PP1/RN1QK2R b KQ - 1 10"));
+        assert!(check("1r3rk1/p1p2qp1/2p1pp2/3p3Q/3P3R/2P1P1P1/PP3PP1/2KR4 w - - 7 19"));
+    }
+
+    #[test]
+    fn test_invalid_fens() {
+        // piece data formatting problems
+        assert!(!check("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPPP/RNBQKBNR w KQkq - 0 1")); // too many pieces in a rank
+        assert!(!check("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPP/RNBQKBNR w KQkq - 0 1")); // too few pieces in a rank
+        assert!(!check("rnbqkbnr/pppppppX/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")); // invalid piece symbol
+        
+        // other data formatting problems
+        assert!(!check("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR - KQkq - 0 1")); // invalid current turn
+        assert!(!check("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w kqKQ - 0 1")); // invalid castling order
+        assert!(!check("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KkQq - 0 1")); // invalid castling order
+        assert!(!check("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq a5 0 1")); // invalid en passant square
+        assert!(!check("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - -1 1")); // negative halfmove
+        assert!(!check("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 -1")); // negative fullmove
+    }
+}
