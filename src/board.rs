@@ -7,9 +7,11 @@ use std::fmt::Display;
 mod castling;
 mod fen;
 mod move_generator;
+mod perft;
 mod zobrist;
 
 pub use move_generator::{Magic, Move, MoveFlag};
+pub use perft::perft;
 pub use zobrist::ZobristHash;
 
 use castling::{CastleRights, CastleSide};

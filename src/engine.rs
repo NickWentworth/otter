@@ -1,5 +1,5 @@
 use crate::{
-    board::{Board, Magic},
+    board::{perft, Board, Magic},
     core::{Color, NUM_COLORS},
     search::Searcher,
 };
@@ -135,6 +135,18 @@ impl Engine {
                 // display transposition table statistics
                 Some("stats") => println!("{}", self.searcher),
 
+                // do perft function
+                Some("perft") => match tokens.next() {
+                    Some(depth_str) => {
+                        if let Ok(depth) = depth_str.parse() {
+                            let nodes = perft(&mut self.board, depth);
+                            println!("Nodes: {}", nodes);
+                        }
+                    }
+
+                    None => println!("Please provide a depth to search."),
+                },
+
                 // generate a new set of magic numbers
                 Some("generate") => Magic::generate_magics(),
 
@@ -144,6 +156,7 @@ impl Engine {
                     println!("position fen [FEN]\n\tSetup board from fen string\n");
                     println!("go\n\tSearch for best move from current position\n");
                     println!("display\n\tDisplay current position on the board\n");
+                    println!("perft [depth]\n\tCount total number of permutations from the current position\n");
                 }
 
                 // if unable to match a command, do nothing
