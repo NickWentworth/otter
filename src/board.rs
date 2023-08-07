@@ -11,7 +11,7 @@ mod perft;
 mod zobrist;
 
 pub use move_generator::{Magic, Move, MoveFlag};
-pub use perft::perft;
+pub use perft::perft_divide;
 pub use zobrist::ZobristHash;
 
 use castling::{CastleRights, CastleSide};

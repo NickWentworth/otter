@@ -3,7 +3,7 @@ use crate::board::Board;
 /// Returns the number of positions possible from the given board state and given depth to search
 ///
 /// Requires a pre-initialized move generator so that it can easily be re-used
-pub fn perft(board: &mut Board, depth: u8) -> u64 {
+fn perft(board: &mut Board, depth: u8) -> u64 {
     match depth {
         // count 1 for this leaf node
         0 => 1,

@@ -1,5 +1,5 @@
 use crate::{
-    board::{perft, Board, Magic},
+    board::{perft_divide, Board, Magic},
     core::{Color, NUM_COLORS},
     search::Searcher,
 };
@@ -139,8 +139,9 @@ impl Engine {
                 Some("perft") => match tokens.next() {
                     Some(depth_str) => {
                         if let Ok(depth) = depth_str.parse() {
-                            let nodes = perft(&mut self.board, depth);
-                            println!("Nodes: {}", nodes);
+                            let nodes = perft_divide(&mut self.board, depth);
+                            println!();
+                            println!("Total nodes: {}", nodes);
                         }
                     }
 
