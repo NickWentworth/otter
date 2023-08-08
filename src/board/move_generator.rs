@@ -436,7 +436,7 @@ impl MoveGenerator {
     /// Helper function that generates the attacked square bitboard for a given sliding piece and square
     ///
     /// Does not remove the same color pieces being defended, but does clip them properly as expected
-    fn generate_sliding_attack(piece_square: usize, piece: Piece, blockers: Bitboard) -> Bitboard {
+    fn generate_sliding_attack(piece_square: Square, piece: Piece, blockers: Bitboard) -> Bitboard {
         let mut moves = Bitboard::EMPTY;
 
         let attacks = match piece {
